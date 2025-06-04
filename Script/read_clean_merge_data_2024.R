@@ -158,4 +158,3 @@ close(pb)
 # Save the matrix
 saveRDS(dist_matrix, "ProcessedData/distance_matrix_haversine_county.rds")
 
-
