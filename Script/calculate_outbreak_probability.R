@@ -111,29 +111,6 @@ pop <- map_data$total  # county population
 names(pop) <- map_data$County
 
 
-
-
-# Method 3: Gravity Model
-contact_method3 <- function(pop, dist_matrix) {
-  county_names <- rownames(dist_matrix)
-  mat <- matrix(NA, length(county_names), length(county_names),
-                dimnames = list(county_names, county_names))
-  
-  for (i in county_names) {
-    for (j in county_names) {
-      dij <- dist_matrix[i, j]
-      if (dij == 0 || is.na(dij)) next  # avoid divide by zero
-      mi <- pop[i]
-      mj <- pop[j]
-      Tij <- (mi * mj) / (dij^2)
-      mat[i, j] <- Tij
-    }
-  }
-  return(mat)
-}
-
-
-
 contact_method7 <- function(flows_avg) {
   county_names <- sort(unique(c(flows_avg$county_o, flows_avg$county_d)))
   mat <- matrix(0, length(county_names), length(county_names),
@@ -177,13 +154,7 @@ flows_avg <- texas_flows %>%
     .groups = "drop"
   )
 
-
-C3 <- contact_method3(pop, dist_matrix)
 C7 <- contact_method7(flows_avg)
-
-
-
-
 
 
 ############ Transmission/ Outbreak Probability ############
@@ -223,15 +194,6 @@ compute_transmission_matrix <- function(Cij, map_data, strategy = 0, q = 0.9) {
 }
 
 
-# Compute pij for all methods and Strategies
-# Method 3 (Gravity Model)
-pij_M3_S0 <- compute_transmission_matrix(C3, map_data)
-pij_M3_S1 <- compute_transmission_matrix(C3, map_data, strategy = 1)
-pij_M3_S2 <- compute_transmission_matrix(C3, map_data, strategy = 2)
-pij_M3_S3 <- compute_transmission_matrix(C3, map_data, strategy = 3)
-pij_M3_S4 <- compute_transmission_matrix(C3, map_data, strategy = 4)
-pij_M3_S5 <- compute_transmission_matrix(C3, map_data, strategy = 5)
-
 # Method 7 (Mobility Flows)
 pij_M7_S0 <- compute_transmission_matrix(C7, map_data)
 pij_M7_S1 <- compute_transmission_matrix(C7, map_data, strategy = 1)
@@ -239,14 +201,6 @@ pij_M7_S2 <- compute_transmission_matrix(C7, map_data, strategy = 2)
 pij_M7_S3 <- compute_transmission_matrix(C7, map_data, strategy = 3)
 pij_M7_S4 <- compute_transmission_matrix(C7, map_data, strategy = 4)
 pij_M7_S5 <- compute_transmission_matrix(C7, map_data, strategy = 5)
-
-
-saveRDS(pij_M3_S0, "ProcessedData/pij_M3_S0.rds")
-saveRDS(pij_M3_S1, "ProcessedData/pij_M3_S1.rds")
-saveRDS(pij_M3_S2, "ProcessedData/pij_M3_S2.rds")
-saveRDS(pij_M3_S3, "ProcessedData/pij_M3_S3.rds")
-saveRDS(pij_M3_S4, "ProcessedData/pij_M3_S4.rds")
-saveRDS(pij_M3_S5, "ProcessedData/pij_M3_S5.rds")
 
 
 saveRDS(pij_M7_S0, "ProcessedData/pij_M7_S0.rds")

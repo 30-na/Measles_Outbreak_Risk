@@ -75,13 +75,9 @@ plot_transmission_row <- function(method, map_data, counties, strategies = c(0,1
 
 
 
-plot_transmission_row(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
+
 plot_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-
-plot_transmission_row(method = 3, map_probability, counties = c("Gaines"), strategies = c(1, 2, 3))
 plot_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(1, 2, 3))
-
-plot_transmission_row(method = 3, map_probability, counties = c("Gaines"), strategies = c(0))
 plot_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(0))
 
 
@@ -156,15 +152,9 @@ plot_transmission_histograms <- function(method, map_data, counties, strategies 
 
 
 
-plot_transmission_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
+
 plot_transmission_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-
-
-plot_transmission_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3))
 plot_transmission_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3))
-
-
-plot_transmission_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0))
 plot_transmission_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0))
 
 
@@ -259,13 +249,9 @@ plot_transmission_population_risk_histograms <- function(method, map_probability
 
 
 
-plot_transmission_population_risk_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
+
 plot_transmission_population_risk_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-
-plot_transmission_population_risk_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3))
 plot_transmission_population_risk_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3))
-
-plot_transmission_population_risk_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0))
 plot_transmission_population_risk_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0))
 
 
@@ -421,18 +407,8 @@ plot_indirect_transmission_row <- function(method, map_data, counties, strategie
 }
 
 
-
-
-
-plot_indirect_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(0),threshold = .5)
-
-plot_indirect_transmission_row(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5),threshold = .5)
 plot_indirect_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5),threshold = .5)
-
-plot_indirect_transmission_row(method = 3, map_probability, counties = c("Gaines"), strategies = c(1, 2, 3),threshold = .5)
 plot_indirect_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(1, 2, 3),threshold = .5)
-
-plot_indirect_transmission_row(method = 3, map_probability, counties = c("Gaines"), strategies = c(0),threshold = .5)
 plot_indirect_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(0),threshold = .5)
 
 
@@ -507,15 +483,9 @@ plot_indirect_transmission_histograms <- function(method, map_data, counties, st
 }
 
 
-plot_indirect_transmission_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5), threshold = 0.5)
+
 plot_indirect_transmission_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5), threshold = 0.5)
-
-
-plot_indirect_transmission_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3), threshold = 0.5)
 plot_indirect_transmission_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3), threshold = 0.5)
-
-
-plot_indirect_transmission_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
 plot_indirect_transmission_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
 
 
@@ -606,13 +576,9 @@ plot_indirect_population_risk_histograms <- function(method, map_data, counties,
 }
 
 
-plot_indirect_population_risk_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5), threshold = 0.5)
+
 plot_indirect_population_risk_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5), threshold = 0.5)
-
-plot_indirect_population_risk_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3), threshold = 0.5)
 plot_indirect_population_risk_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3), threshold = 0.5)
-
-plot_indirect_population_risk_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
 plot_indirect_population_risk_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
 
 
@@ -665,15 +631,6 @@ plot_indirect_transmission_row_multiple <- function(method, map_data, counties,
 
 
 low_mmr_counties <- c("KING", "HALL", "THROCKMORTON")
-
-# Run for method 3, strategy 0
-plot_indirect_transmission_row_multiple(
-  method = 3,
-  map_data = map_probability,
-  counties = low_mmr_counties,
-  strategy = 0,
-  threshold = 0.5
-)
 
 plot_indirect_transmission_row_multiple(
   method = 7,
