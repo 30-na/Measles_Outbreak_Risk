@@ -3,12 +3,53 @@ library(sf)
 library(cowplot)
 library(stringr)
 library(dplyr)
-
+library(tidyr)
 
 map_probability <- readRDS("ProcessedData/map_probability.rds")
 
-## Plot transmission risk
 
+
+compute_indirect_risk <- function(trans_mat, county_name = "GAINES", threshold = .5) {
+  county_upper <- toupper(county_name)
+  county_names <- rownames(trans_mat)
+  
+  if (!(county_upper %in% county_names)) stop("County not found in matrix")
+  
+  direct_vec <- trans_mat[county_upper, ]
+  ik_vec <- trans_mat[county_upper, ]
+  k_indices <- which(ik_vec >= threshold & !is.na(ik_vec))
+  
+  combined_vec <- rep(NA_real_, length(direct_vec))
+  names(combined_vec) <- names(direct_vec)
+  
+  for (j in names(direct_vec)) {
+    pj <- direct_vec[j]
+    sum_indirect <- 0
+    valid_ks <- names(k_indices)
+    
+    if (length(valid_ks) > 0) {
+      for (k in valid_ks) {
+        pik <- ik_vec[k]
+        pkj <- trans_mat[k, j]
+        if (!is.na(pkj)) sum_indirect <- sum_indirect + (pik * pkj)
+      }
+      sum_indirect <- sum_indirect / length(valid_ks)
+      #print(length(valid_ks))
+    } else {
+      sum_indirect <- 0
+    }
+    
+    combined_vec[j] <- min(1, pj + sum_indirect)
+  }
+  
+  combined_vec[county_upper] <- NA  # Hide self-transmission
+  return(combined_vec)
+}
+
+
+
+
+## Plot transmission risk
 
 plot_transmission_row <- function(method, map_data, counties, strategies = c(0,1,2,3), out_dir = "Figures/") {
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
@@ -303,42 +344,6 @@ plot_map(map_probability,
 
 ############################ PLOT indirect Probability ######################################  
 
-compute_indirect_risk <- function(trans_mat, county_name = "GAINES", threshold = .5) {
-  county_upper <- toupper(county_name)
-  county_names <- rownames(trans_mat)
-  
-  if (!(county_upper %in% county_names)) stop("County not found in matrix")
-  
-  direct_vec <- trans_mat[county_upper, ]
-  ik_vec <- trans_mat[county_upper, ]
-  k_indices <- which(ik_vec >= threshold & !is.na(ik_vec))
-  
-  combined_vec <- rep(NA_real_, length(direct_vec))
-  names(combined_vec) <- names(direct_vec)
-  
-  for (j in names(direct_vec)) {
-    pj <- direct_vec[j]
-    sum_indirect <- 0
-    valid_ks <- names(k_indices)
-    
-    if (length(valid_ks) > 0) {
-      for (k in valid_ks) {
-        pik <- ik_vec[k]
-        pkj <- trans_mat[k, j]
-        if (!is.na(pkj)) sum_indirect <- sum_indirect + (pik * pkj)
-      }
-      sum_indirect <- sum_indirect / length(valid_ks)
-      #print(length(valid_ks))
-    } else {
-      sum_indirect <- 0
-    }
-    
-    combined_vec[j] <- min(1, pj + sum_indirect)
-  }
-  
-  combined_vec[county_upper] <- NA  # Hide self-transmission
-  return(combined_vec)
-}
 
 
 
@@ -385,7 +390,7 @@ plot_indirect_transmission_row <- function(method, map_data, counties, strategie
         scale_fill_gradientn(colors = base_colors, na.value = "gray80", limits = c(0, 1)) +
         labs(
           title = strategy_labels[i],
-          fill = "Indirect Risk"
+          fill = "Outbreak Probability"
         ) +
         theme_minimal() +
         theme(
@@ -550,7 +555,7 @@ plot_indirect_population_risk_histograms <- function(method, map_data, counties,
         ylim(0, max_y) +
         labs(
           title = strategy_labels[i],
-          x = "Indirect Transmission Probability Range",
+          x = "Transmission Probability Range",
           y = "Total Susceptible Population"
         ) +
         theme_minimal() +
@@ -608,7 +613,7 @@ plot_indirect_transmission_row_multiple <- function(method, map_data, counties,
       scale_fill_gradientn(colors = base_colors, na.value = "gray80", limits = c(0, 1)) +
       labs(
         title = str_to_title(county),
-        fill = "Indirect Risk"
+        fill = "Outbreak Probability"
       ) +
       theme_minimal() +
       theme(
@@ -630,12 +635,19 @@ plot_indirect_transmission_row_multiple <- function(method, map_data, counties,
 }
 
 
-low_mmr_counties <- c("KING", "HALL", "THROCKMORTON")
 
 plot_indirect_transmission_row_multiple(
   method = 7,
   map_data = map_probability,
-  counties = low_mmr_counties,
+  counties = c("POLK", "MONTAGUE", "LIMESTONE"),
+  strategy = 0,
+  threshold = 0.5
+)
+
+plot_indirect_transmission_row_multiple(
+  method = 7,
+  map_data = map_probability,
+  counties = c("KING", "HALL", "THROCKMORTON"),
   strategy = 0,
   threshold = 0.5
 )
