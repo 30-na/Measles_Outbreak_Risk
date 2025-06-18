@@ -85,18 +85,8 @@ plot_transmission_row(method = 3, map_probability, counties = c("Gaines"), strat
 plot_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(0))
 
 
-plot_transmission_row(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-plot_transmission_row(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-
-plot_transmission_row(method = 1, map_probability, counties = c("Gaines"), strategies = c(1, 2, 3))
-plot_transmission_row(method = 2, map_probability, counties = c("Gaines"), strategies = c(1, 2, 3))
-
-
-plot_transmission_row(method = 1, map_probability, counties = c("Gaines"), strategies = c(0))
-plot_transmission_row(method = 2, map_probability, counties = c("Gaines"), strategies = c(0))
-
 ############################# Histograms ############
-plot_transmission_histograms <- function(method, map_data, counties, strategies = 0:3, out_dir = "Figures/") {
+plot_transmission_histograms <- function(method, map_data, counties, strategies = 0:3, out_dir = "Figures/", x_label="Probability of Local Outbreaks (First-generation)") {
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
   
   # Full strategy labels including 4 and 5
@@ -142,7 +132,7 @@ plot_transmission_histograms <- function(method, map_data, counties, strategies 
         ylim(0, max_y) +
         labs(
           title = strategy_labels[i],
-          x = "Transmission Probability",
+          x = x_label,
           y = "Number of Counties"
         ) +
         theme_minimal() +
@@ -176,18 +166,6 @@ plot_transmission_histograms(method = 7, map_probability, counties = c("Gaines")
 
 plot_transmission_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0))
 plot_transmission_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0))
-
-
-plot_transmission_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-plot_transmission_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-
-
-plot_transmission_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3))
-plot_transmission_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3))
-
-
-plot_transmission_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0))
-plot_transmission_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0))
 
 
 ########## Histogram suceptible
@@ -292,15 +270,6 @@ plot_transmission_population_risk_histograms(method = 7, map_probability, counti
 
 
 
-plot_transmission_population_risk_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-plot_transmission_population_risk_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5))
-
-plot_transmission_population_risk_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3))
-plot_transmission_population_risk_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3))
-
-plot_transmission_population_risk_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0))
-plot_transmission_population_risk_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0))
-
 #### Plot MMR 
 
 
@@ -373,7 +342,7 @@ compute_indirect_risk <- function(trans_mat, county_name = "GAINES", threshold =
         if (!is.na(pkj)) sum_indirect <- sum_indirect + (pik * pkj)
       }
       sum_indirect <- sum_indirect / length(valid_ks)
-      print(length(valid_ks))
+      #print(length(valid_ks))
     } else {
       sum_indirect <- 0
     }
@@ -384,30 +353,6 @@ compute_indirect_risk <- function(trans_mat, county_name = "GAINES", threshold =
   combined_vec[county_upper] <- NA  # Hide self-transmission
   return(combined_vec)
 }
-
-
-# 
-# plot_indirect_transmission <- function(map_data, combined_vec, title, file_name, highlight_county = "GAINES") {
-#   county_upper <- toupper(highlight_county)
-#   map_data$combined_transmission <- combined_vec[match(toupper(map_data$County), names(combined_vec))]
-#   highlight_geom <- map_data %>% filter(toupper(County) == county_upper)
-#   
-#   p <- ggplot(map_data) +
-#     geom_sf(aes(fill = combined_transmission), color = "gray40", size = 0.1) +
-#     geom_sf(data = highlight_geom, fill = "blue", color = "black", size = 0.3) +
-#     scale_fill_gradientn(colors = c("#1a9850", "#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"),
-#                          na.value = "gray80", limits = c(0, 1)) +
-#     labs(title = title, fill = "Pij (adjusted)") +
-#     theme_minimal() +
-#     theme(
-#       plot.title = element_text(hjust = 0.5, size = 14),
-#       legend.title = element_text(size = 10),
-#       legend.text = element_text(size = 9)
-#     )
-#   
-#   ggsave(paste0("Figures/", file_name, ".png"), p, width = 10, height = 6, dpi = 300)
-#   return(p)
-# }
 
 
 
@@ -479,30 +424,6 @@ plot_indirect_transmission_row <- function(method, map_data, counties, strategie
 
 
 
-
-
-#pij_M3_S0 <- readRDS("ProcessedData/pij_M3_S0.rds")
-
-# Step 1: Compute indirect-adjusted probabilities
-#adjusted_vec_M3_S0 <- compute_indirect_risk(pij_M3_S0, county_name = "GAINES", threshold = .5)
-
-# Step 2: Plot the adjusted transmission map
-# plot_indirect_transmission(map_probability, adjusted_vec_M3_S0,
-#                            title = "Indirect Risk from Gaines (Model 3, Strategy 0)",
-#                            file_name = "adjusted_transmission_gaines_model3_s0")
-
-
-
-# pij_M7_S0 <- readRDS("ProcessedData/pij_M7_S0.rds")
-# 
-# # Step 1: Compute indirect-adjusted probabilities
-# adjusted_vec_M7_S0 <- compute_indirect_risk(pij_M7_S0, county_name = "GAINES", threshold = .5)
-# 
-# # Step 2: Plot the adjusted transmission map
-# plot_indirect_transmission(map_probability, adjusted_vec_M7_S0,
-#                            title = "Indirect Risk from Gaines (Model 7, Strategy 0)",
-#                            file_name = "adjusted_transmission_gaines_model7_s0")
-
 plot_indirect_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(0),threshold = .5)
 
 plot_indirect_transmission_row(method = 3, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5),threshold = .5)
@@ -515,21 +436,12 @@ plot_indirect_transmission_row(method = 3, map_probability, counties = c("Gaines
 plot_indirect_transmission_row(method = 7, map_probability, counties = c("Gaines"), strategies = c(0),threshold = .5)
 
 
-plot_indirect_transmission_row(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5),threshold = .5)
-plot_indirect_transmission_row(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5),threshold = .5)
-
-plot_indirect_transmission_row(method = 1, map_probability, counties = c("Gaines"), strategies = c(1, 2, 3),threshold = .5)
-plot_indirect_transmission_row(method = 2, map_probability, counties = c("Gaines"), strategies = c(1, 2, 3),threshold = .5)
-
-
-plot_indirect_transmission_row(method = 1, map_probability, counties = c("Gaines"), strategies = c(0),threshold = .5)
-plot_indirect_transmission_row(method = 2, map_probability, counties = c("Gaines"), strategies = c(0),threshold = .5)
 
 
 
 ########### Histogram plots indirect risk for each strategy.
 plot_indirect_transmission_histograms <- function(method, map_data, counties, strategies = 0:3,
-                                                  threshold = 0.5, out_dir = "Figures/") {
+                                                  threshold = 0.5, out_dir = "Figures/", x_label="Probability of Local Outbreaks (First and Second-generation)") {
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
   
   full_labels <- c(
@@ -572,7 +484,7 @@ plot_indirect_transmission_histograms <- function(method, map_data, counties, st
         ylim(0, max_y) +
         labs(
           title = strategy_labels[i],
-          x = "Indirect Transmission Probability",
+          x = x_label,
           y = "Number of Counties"
         ) +
         theme_minimal() +
@@ -605,20 +517,6 @@ plot_indirect_transmission_histograms(method = 7, map_probability, counties = c(
 
 plot_indirect_transmission_histograms(method = 3, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
 plot_indirect_transmission_histograms(method = 7, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
-
-
-plot_indirect_transmission_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5), threshold = 0.5)
-plot_indirect_transmission_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5), threshold = 0.5)
-
-
-plot_indirect_transmission_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3), threshold = 0.5)
-plot_indirect_transmission_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3), threshold = 0.5)
-
-
-plot_indirect_transmission_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
-plot_indirect_transmission_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
-
-
 
 
 
@@ -719,16 +617,6 @@ plot_indirect_population_risk_histograms(method = 7, map_probability, counties =
 
 
 
-plot_indirect_population_risk_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5), threshold = 0.5)
-plot_indirect_population_risk_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 4, 5), threshold = 0.5)
-
-plot_indirect_population_risk_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3), threshold = 0.5)
-plot_indirect_population_risk_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0, 1, 2, 3), threshold = 0.5)
-
-plot_indirect_population_risk_histograms(method = 1, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
-plot_indirect_population_risk_histograms(method = 2, map_probability, counties = c("Gaines"), strategies = c(0), threshold = 0.5)
-
-
 ####### Plot low vaccine rate counties in a roew indirect risk
 
 plot_indirect_transmission_row_multiple <- function(method, map_data, counties,
@@ -781,6 +669,14 @@ low_mmr_counties <- c("KING", "HALL", "THROCKMORTON")
 # Run for method 3, strategy 0
 plot_indirect_transmission_row_multiple(
   method = 3,
+  map_data = map_probability,
+  counties = low_mmr_counties,
+  strategy = 0,
+  threshold = 0.5
+)
+
+plot_indirect_transmission_row_multiple(
+  method = 7,
   map_data = map_probability,
   counties = low_mmr_counties,
   strategy = 0,

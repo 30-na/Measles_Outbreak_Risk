@@ -50,6 +50,30 @@ map_data <- map_data %>%
   )
 
 
+# State-level average vaccination coverage for each strategy
+state_avg_coverage <- map_data %>%
+  summarise(
+    avg_MMR = mean(MMR, na.rm = TRUE),
+    avg_MMR1 = mean(MMR1, na.rm = TRUE),
+    avg_MMR2 = mean(MMR2, na.rm = TRUE),
+    avg_MMR3 = mean(MMR3, na.rm = TRUE)
+  )
+
+# Number of counties that would increase to at least 90% and 92%
+counties_to_90 <- sum(map_data$MMR < 0.90, na.rm = TRUE)
+counties_to_92 <- sum(map_data$MMR < 0.92, na.rm = TRUE)
+
+cat("State-Level Average Vaccination Coverage:\n")
+cat(sprintf("  Original MMR:  %.4f\n", state_avg_coverage$avg_MMR))
+cat(sprintf("  Strategy 1 (≥90%%): %.4f\n", state_avg_coverage$avg_MMR1))
+cat(sprintf("  Strategy 2 (≥92%%): %.4f\n", state_avg_coverage$avg_MMR2))
+cat(sprintf("  Strategy 3 (+5%%):  %.4f\n\n", state_avg_coverage$avg_MMR3))
+
+cat("Number of counties reaching threshold:\n")
+cat(sprintf("  To ≥90%% (Strategy 1): %d counties\n", counties_to_90))
+cat(sprintf("  To ≥92%% (Strategy 2): %d counties\n", counties_to_92))
+
+
 # Define function for internal infection probability
 find_internal_infection_numeric <- function(Vj, efficacy_rate = efficacy, R0 = 18, tol = 1e-4) {
   if (is.na(Vj)) return(NA_real_)
@@ -86,62 +110,6 @@ saveRDS(map_data, "ProcessedData/map_probability.rds")
 pop <- map_data$total  # county population
 names(pop) <- map_data$County
 
-
-
-
-# Method 1: Model A
-contact_method1 <- function(pop, dist_matrix) {
-  A <- 75.94
-  B <- 278e-9
-  C <- 1.85e4
-  D <- 3.43e8
-  alpha <- 1.80
-  gamma <- 1.16
-  
-  county_names <- rownames(dist_matrix)
-  mat <- matrix(NA, length(county_names), length(county_names),
-                dimnames = list(county_names, county_names))
-  
-  for (i in county_names) {
-    for (j in county_names) {
-      dij <- dist_matrix[i, j]
-      if (dij == 0) next  # skip self-distances or undefined cases
-      mi <- pop[i]
-      mj <- pop[j]
-      Tij <- A * ((B * (mi * mj + C * mj + D)) / (dij^alpha) + 1)^gamma
-      mat[i, j] <- 365 * Tij
-    }
-  }
-  return(mat)
-}
-
-
-# Method 2: Model B
-contact_method2 <- function(pop, dist_matrix) {
-  A <- 4.10
-  B <- 1240e-6
-  C <- 61.2
-  D <- 1.79e4
-  beta <- 0.50
-  xi <- 0.30
-  
-  county_names <- rownames(dist_matrix)
-  mat <- matrix(NA, length(county_names), length(county_names),
-                dimnames = list(county_names, county_names))
-  
-  for (i in county_names) {
-    for (j in county_names) {
-      dij <- dist_matrix[i, j]
-      if (dij == 0) next
-      mi <- pop[i]
-      mj <- pop[j]
-      term <- 1 + (B * ((mi + C) * (mj + D))^beta / dij)
-      Tij <- exp(A * (term)^xi)
-      mat[i, j] <- 365 * Tij
-    }
-  }
-  return(mat)
-}
 
 
 
@@ -209,8 +177,7 @@ flows_avg <- texas_flows %>%
     .groups = "drop"
   )
 
-C1 <- contact_method1(pop, dist_matrix)
-C2 <- contact_method2(pop, dist_matrix)
+
 C3 <- contact_method3(pop, dist_matrix)
 C7 <- contact_method7(flows_avg)
 
@@ -255,21 +222,6 @@ compute_transmission_matrix <- function(Cij, map_data, strategy = 0, q = 0.9) {
   return(transmission_mat)
 }
 
-# Method 1 (Model A)
-pij_M1_S0 <- compute_transmission_matrix(C1, map_data)
-pij_M1_S1 <- compute_transmission_matrix(C1, map_data, strategy = 1)
-pij_M1_S2 <- compute_transmission_matrix(C1, map_data, strategy = 2)
-pij_M1_S3 <- compute_transmission_matrix(C1, map_data, strategy = 3)
-pij_M1_S4 <- compute_transmission_matrix(C1, map_data, strategy = 4)
-pij_M1_S5 <- compute_transmission_matrix(C1, map_data, strategy = 5)
-
-# Method 2 (Model B)
-pij_M2_S0 <- compute_transmission_matrix(C2, map_data)
-pij_M2_S1 <- compute_transmission_matrix(C2, map_data, strategy = 1)
-pij_M2_S2 <- compute_transmission_matrix(C2, map_data, strategy = 2)
-pij_M2_S3 <- compute_transmission_matrix(C2, map_data, strategy = 3)
-pij_M2_S4 <- compute_transmission_matrix(C2, map_data, strategy = 4)
-pij_M2_S5 <- compute_transmission_matrix(C2, map_data, strategy = 5)
 
 # Compute pij for all methods and Strategies
 # Method 3 (Gravity Model)
@@ -289,23 +241,6 @@ pij_M7_S4 <- compute_transmission_matrix(C7, map_data, strategy = 4)
 pij_M7_S5 <- compute_transmission_matrix(C7, map_data, strategy = 5)
 
 
-
-
-saveRDS(pij_M1_S0, "ProcessedData/pij_M1_S0.rds")
-saveRDS(pij_M1_S1, "ProcessedData/pij_M1_S1.rds")
-saveRDS(pij_M1_S2, "ProcessedData/pij_M1_S2.rds")
-saveRDS(pij_M1_S3, "ProcessedData/pij_M1_S3.rds")
-saveRDS(pij_M1_S4, "ProcessedData/pij_M1_S4.rds")
-saveRDS(pij_M1_S5, "ProcessedData/pij_M1_S5.rds")
-
-saveRDS(pij_M2_S0, "ProcessedData/pij_M2_S0.rds")
-saveRDS(pij_M2_S1, "ProcessedData/pij_M2_S1.rds")
-saveRDS(pij_M2_S2, "ProcessedData/pij_M2_S2.rds")
-saveRDS(pij_M2_S3, "ProcessedData/pij_M2_S3.rds")
-saveRDS(pij_M2_S4, "ProcessedData/pij_M2_S4.rds")
-saveRDS(pij_M2_S5, "ProcessedData/pij_M2_S5.rds")
-
-
 saveRDS(pij_M3_S0, "ProcessedData/pij_M3_S0.rds")
 saveRDS(pij_M3_S1, "ProcessedData/pij_M3_S1.rds")
 saveRDS(pij_M3_S2, "ProcessedData/pij_M3_S2.rds")
@@ -320,69 +255,4 @@ saveRDS(pij_M7_S2, "ProcessedData/pij_M7_S2.rds")
 saveRDS(pij_M7_S3, "ProcessedData/pij_M7_S3.rds")
 saveRDS(pij_M7_S4, "ProcessedData/pij_M7_S4.rds")
 saveRDS(pij_M7_S5, "ProcessedData/pij_M7_S5.rds")
-
-
-
-compute_indirect_risk <- function(trans_mat, county_name = "GAINES", threshold = 0.75) {
-  county_upper <- toupper(county_name)
-  county_names <- rownames(trans_mat)
-  
-  if (!(county_upper %in% county_names)) stop("County not found in matrix")
-  
-  direct_vec <- trans_mat[county_upper, ]
-  ik_vec <- trans_mat[county_upper, ]
-  k_indices <- which(ik_vec > threshold & !is.na(ik_vec))
-  
-  combined_vec <- rep(NA_real_, length(direct_vec))
-  names(combined_vec) <- names(direct_vec)
-  
-  for (j in names(direct_vec)) {
-    pj <- direct_vec[j]
-    sum_indirect <- 0
-    
-    for (k in names(k_indices)) {
-      pik <- ik_vec[k]
-      pkj <- trans_mat[k, j]
-      if (!is.na(pkj)) sum_indirect <- sum_indirect + (pik * pkj)
-    }
-    
-    combined_vec[j] <- min(1, pj + sum_indirect)
-  }
-  
-  combined_vec[county_upper] <- NA  # No self-transmission plotted
-  return(combined_vec)
-}
-
-
-plot_indirect_transmission <- function(map_data, combined_vec, title, file_name) {
-  map_data$combined_transmission <- combined_vec[match(toupper(map_data$County), names(combined_vec))]
-  
-  p <- ggplot(map_data) +
-    geom_sf(aes(fill = combined_transmission), color = "gray40", size = 0.1) +
-    scale_fill_gradientn(colors = c("#1a9850", "#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"),
-                         na.value = "gray80", limits = c(0, 1)) +
-    labs(title = title, fill = "Pij (adjusted)") +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(hjust = 0.5, size = 14),
-      legend.title = element_text(size = 10),
-      legend.text = element_text(size = 9)
-    )
-  
-  ggsave(paste0("Figures/", file_name, ".png"), p, width = 10, height = 6, dpi = 300)
-  return(p)
-}
-
-
-
-# Step 1: Compute indirect-adjusted probabilities
-adjusted_vec <- compute_indirect_risk(pij_M3_S0, county_name = "GAINES", threshold = 0.75)
-
-# Step 2: Plot the adjusted transmission map
-plot_indirect_transmission(map_probability, adjusted_vec,
-                           title = "Indirect Risk from Gaines (Model 3, Strategy 0)",
-                           file_name = "adjusted_transmission_gaines_model3_s0")
-
-
-
 
