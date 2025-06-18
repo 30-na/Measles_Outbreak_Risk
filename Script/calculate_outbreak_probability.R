@@ -158,7 +158,7 @@ contact_method3 <- function(pop, dist_matrix) {
       mi <- pop[i]
       mj <- pop[j]
       Tij <- (mi * mj) / (dij^2)
-      mat[i, j] <- Tij * .33
+      mat[i, j] <- Tij
     }
   }
   return(mat)
@@ -323,7 +323,65 @@ saveRDS(pij_M7_S5, "ProcessedData/pij_M7_S5.rds")
 
 
 
+compute_indirect_risk <- function(trans_mat, county_name = "GAINES", threshold = 0.75) {
+  county_upper <- toupper(county_name)
+  county_names <- rownames(trans_mat)
+  
+  if (!(county_upper %in% county_names)) stop("County not found in matrix")
+  
+  direct_vec <- trans_mat[county_upper, ]
+  ik_vec <- trans_mat[county_upper, ]
+  k_indices <- which(ik_vec > threshold & !is.na(ik_vec))
+  
+  combined_vec <- rep(NA_real_, length(direct_vec))
+  names(combined_vec) <- names(direct_vec)
+  
+  for (j in names(direct_vec)) {
+    pj <- direct_vec[j]
+    sum_indirect <- 0
+    
+    for (k in names(k_indices)) {
+      pik <- ik_vec[k]
+      pkj <- trans_mat[k, j]
+      if (!is.na(pkj)) sum_indirect <- sum_indirect + (pik * pkj)
+    }
+    
+    combined_vec[j] <- min(1, pj + sum_indirect)
+  }
+  
+  combined_vec[county_upper] <- NA  # No self-transmission plotted
+  return(combined_vec)
+}
 
+
+plot_indirect_transmission <- function(map_data, combined_vec, title, file_name) {
+  map_data$combined_transmission <- combined_vec[match(toupper(map_data$County), names(combined_vec))]
+  
+  p <- ggplot(map_data) +
+    geom_sf(aes(fill = combined_transmission), color = "gray40", size = 0.1) +
+    scale_fill_gradientn(colors = c("#1a9850", "#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"),
+                         na.value = "gray80", limits = c(0, 1)) +
+    labs(title = title, fill = "Pij (adjusted)") +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 14),
+      legend.title = element_text(size = 10),
+      legend.text = element_text(size = 9)
+    )
+  
+  ggsave(paste0("Figures/", file_name, ".png"), p, width = 10, height = 6, dpi = 300)
+  return(p)
+}
+
+
+
+# Step 1: Compute indirect-adjusted probabilities
+adjusted_vec <- compute_indirect_risk(pij_M3_S0, county_name = "GAINES", threshold = 0.75)
+
+# Step 2: Plot the adjusted transmission map
+plot_indirect_transmission(map_probability, adjusted_vec,
+                           title = "Indirect Risk from Gaines (Model 3, Strategy 0)",
+                           file_name = "adjusted_transmission_gaines_model3_s0")
 
 
 
