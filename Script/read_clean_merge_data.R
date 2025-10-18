@@ -17,6 +17,7 @@ library(geosphere)
 ######### Replace mmr with average
 
 # File paths
+mmr_path_2025 <- "RawData/2024-2025_School_Vaccination_Coverage_Levels_Kindergarten.xlsx"
 mmr_path_2024 <- "RawData/2023-2024_School_Vaccination_Coverage_Levels_Kindergarten.xlsx"
 mmr_path_2023 <- "RawData/22-23-School-Vaccination-Coverage-by-District-and-County-K.xlsx"
 mmr_path_2022 <- "RawData/2021-2022-School-Vaccination-Coverage-by-District-and-County-Kindergarten.xlsx"
@@ -24,6 +25,7 @@ mmr_path_2021 <- "RawData/2020-2021-School-Vaccination-Coverage-Levels-by-Distri
 mmr_path_2020 <- "RawData/2019-2020-School-Vaccination-Coverage-Levels---Kindergarten.xlsx"
 
 # Read sheets
+sheet_2025 <- excel_sheets(mmr_path_2024)[2]
 sheet_2024 <- excel_sheets(mmr_path_2024)[2]
 sheet_2023 <- excel_sheets(mmr_path_2023)[2]
 sheet_2022 <- excel_sheets(mmr_path_2023)[2]
@@ -31,6 +33,7 @@ sheet_2021 <- excel_sheets(mmr_path_2021)[2]
 sheet_2020 <- excel_sheets(mmr_path_2020)[2]
 
 # Read each year and keep only County and MMR columns
+mmr_2025 <- read_excel(mmr_path_2025, sheet = sheet_2025, skip=2)
 mmr_2024 <- read_excel(mmr_path_2024, sheet = sheet_2024)
 mmr_2023 <- read_excel(mmr_path_2023, sheet = sheet_2023, skip=2)
 mmr_2022 <- read_excel(mmr_path_2022, sheet = sheet_2022, skip=2)
@@ -38,6 +41,13 @@ mmr_2021 <- read_excel(mmr_path_2021, sheet = sheet_2021, skip=2)
 mmr_2020 <- read_excel(mmr_path_2020, sheet = sheet_2020, skip=2)
 
 # Clean and select manually
+mmr_2025 <- mmr_2025[, c("County", "MMR")] %>%
+  mutate(
+    MMR = as.numeric(MMR),
+    County = toupper(County)
+  )
+
+
 mmr_2024 <- mmr_2024[, c("County", "MMR")] %>%
   mutate(
     MMR = as.numeric(MMR),
@@ -71,6 +81,7 @@ mmr_2020 <- mmr_2020[, c("County", "MMR")] %>%
 
 
 # Rename MMR columns
+names(mmr_2025)[2] <- "MMR_2025"
 names(mmr_2024)[2] <- "MMR_2024"
 names(mmr_2023)[2] <- "MMR_2023"
 names(mmr_2022)[2] <- "MMR_2022"
@@ -78,15 +89,16 @@ names(mmr_2021)[2] <- "MMR_2021"
 names(mmr_2020)[2] <- "MMR_2020"
 
 # Merge all years by County
-df <- merge(mmr_2024, mmr_2023, by = "County", all = TRUE)
+df <- merge(mmr_2025, mmr_2024, by = "County", all = TRUE)
+df <- merge(df, mmr_2023, by = "County", all = TRUE)
 df <- merge(df, mmr_2022, by = "County", all = TRUE)
 df <- merge(df, mmr_2021, by = "County", all = TRUE)
 df <- merge(df, mmr_2020, by = "County", all = TRUE)
 
 names(df)
 
-# Compute 5-year average (2020–2023)
-df$MMR <- rowMeans(df[, c("MMR_2020", "MMR_2021","MMR_2022", "MMR_2023", "MMR_2024")], na.rm = TRUE)
+# Compute 6-year average (2020–2025)
+df$MMR <- rowMeans(df[, c("MMR_2020", "MMR_2021","MMR_2022", "MMR_2023", "MMR_2024",  "MMR_2025")], na.rm = TRUE)
 
 
 mmr_avg <- df %>%
@@ -96,7 +108,7 @@ mmr_avg <- df %>%
   )
 
 # Save to CSV
-write_csv(mmr_avg, "ProcessedData/county_mmr_5yr_average.csv")
+write_csv(mmr_avg, "ProcessedData/county_mmr_6yr_average.csv")
 
 mmr <- df %>%
   select(
