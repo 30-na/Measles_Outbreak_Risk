@@ -8,13 +8,12 @@ library(tigris)
 library(stringdist)
 library(stringr)
 library(sf)
+library(tidyr)
 
 
 
 
-#--------------------------------
-# Functions
-#--------------------------------
+# Functions ----
 
 fuzzy_match <- function(col1, col2, threshold = 0.05, method = "jw") {
   vals1 <- col1 %>%
@@ -41,8 +40,7 @@ fuzzy_match <- function(col1, col2, threshold = 0.05, method = "jw") {
     arrange(dist)
 }
 
-
-keep_cols <- function(df) {
+keep_cols_district <- function(df) {
   df %>%
     dplyr::filter(
       grepl("public", `School Type`, ignore.case = TRUE)
@@ -92,12 +90,23 @@ keep_cols <- function(df) {
     )
 }
 
+keep_cols_county <- function(df) {
+  df %>%
+    select(
+      county = County,
+      MMR
+    ) %>%
+    mutate(
+      MMR = as.numeric(MMR),
+      county = toupper(county)
+    ) %>%
+    filter(
+      county != "TEXAS"
+    )
+}
 
 
-#--------------------------------
-# 01. Texas Map 
-#--------------------------------
-
+# Load Texas Map ----
 
 # Download 2024 Texas Independent School District boundaries
 tx_school_district_map <- school_districts(
@@ -112,6 +121,9 @@ tx_counties <- counties(
 ) %>%
   mutate(
     county = toupper(NAME)
+  ) %>%
+  select(
+    county
   )
 
 tx_school_district_map_clean <- tx_school_district_map %>%
@@ -158,9 +170,9 @@ dup_rows <- tx_school_district_map_clean %>%
   filter(n() > 1) %>%
   ungroup()
 
-#--------------------------------
-# 02. Load Texas age pyramid
-#--------------------------------
+
+
+# Load Texas age pyramid ----
 
 pyramid_age_data <- read.delim(
   "RawData/Texas.csv",
@@ -222,11 +234,11 @@ grade_weights <- pyramid_age_data %>%
   tibble::deframe()
 
 
-#--------------------------------
-# 03. MMR coverage for public schools at District level
-#--------------------------------
 
-# ------------------ File paths ------------------
+
+# MMR coverage for public schools at District level ----
+
+# File paths
 Kindergarten_path_2025 <- "RawData/2024-2025_School_Vaccination_Coverage_Levels_Kindergarten.xlsx"
 Kindergarten_path_2024 <- "RawData/2023-2024_School_Vaccination_Coverage_Levels_Kindergarten.xlsx"
 Kindergarten_path_2023 <- "RawData/22-23-School-Vaccination-Coverage-by-District-and-County-K.xlsx"
@@ -242,7 +254,7 @@ Seventh_path_2021 <- "RawData/2020-2021-School-Vaccination-Coverage-Levels-by-Di
 Seventh_path_2020 <- "RawData/2019-2020-School-Vaccination-Coverage-Levels-by-District-Private-School-and-County---Seventh-Grade.xlsx"
 
 
-# ------------------ Read and clean ------------------
+#  Read and clean 
 district_K_2025 <- read_excel(Kindergarten_path_2025, sheet = "Coverage by District", skip = 2)
 district_K_2024 <- read_excel(Kindergarten_path_2024, sheet = "Coverage by District", skip = 2)
 district_K_2023 <- read_excel(Kindergarten_path_2023, sheet = "Coverage by District", skip = 2)
@@ -258,23 +270,23 @@ district_7th_2021 <- read_excel(Seventh_path_2021, sheet = "Coverage by District
 district_7th_2020 <- read_excel(Seventh_path_2020, sheet = "Coverage by District", skip = 2)
 
 
-# ------------------ Keep only relevant columns ------------------
-district_K_2025_mmr <- keep_cols(district_K_2025)
-district_K_2024_mmr <- keep_cols(district_K_2024)
-district_K_2023_mmr <- keep_cols(district_K_2023)
-district_K_2022_mmr <- keep_cols(district_K_2022)
-district_K_2021_mmr <- keep_cols(district_K_2021)
-district_K_2020_mmr <- keep_cols(district_K_2020)
+#  Keep only relevant columns 
+district_K_2025_mmr <- keep_cols_district(district_K_2025)
+district_K_2024_mmr <- keep_cols_district(district_K_2024)
+district_K_2023_mmr <- keep_cols_district(district_K_2023)
+district_K_2022_mmr <- keep_cols_district(district_K_2022)
+district_K_2021_mmr <- keep_cols_district(district_K_2021)
+district_K_2020_mmr <- keep_cols_district(district_K_2020)
 
-district_7th_2025_mmr <- keep_cols(district_7th_2025)
-district_7th_2024_mmr <- keep_cols(district_7th_2024)
-district_7th_2023_mmr <- keep_cols(district_7th_2023)
-district_7th_2022_mmr <- keep_cols(district_7th_2022)
-district_7th_2021_mmr <- keep_cols(district_7th_2021)
-district_7th_2020_mmr <- keep_cols(district_7th_2020)
+district_7th_2025_mmr <- keep_cols_district(district_7th_2025)
+district_7th_2024_mmr <- keep_cols_district(district_7th_2024)
+district_7th_2023_mmr <- keep_cols_district(district_7th_2023)
+district_7th_2022_mmr <- keep_cols_district(district_7th_2022)
+district_7th_2021_mmr <- keep_cols_district(district_7th_2021)
+district_7th_2020_mmr <- keep_cols_district(district_7th_2020)
 
 
-# ------------------ Merge all years ------------------
+#  Merge all years 
 mmr_district_df <- district_K_2025_mmr %>% rename(K = MMR) %>%
   full_join(district_K_2024_mmr %>% rename(G1 = MMR), by = c("id", "district", "county")) %>%
   full_join(district_K_2023_mmr %>% rename(G2 = MMR), by = c("id", "district", "county")) %>%
@@ -289,7 +301,7 @@ mmr_district_df <- district_K_2025_mmr %>% rename(K = MMR) %>%
   full_join(district_7th_2020_mmr %>% rename(G12 = MMR), by = c("id", "district", "county")) %>%
   mutate(
     G6 = rowMeans(select(., G5, G7), na.rm = TRUE)
-    ) %>%
+  ) %>%
   select(id, district, county, K, G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12)
 
 
@@ -339,23 +351,23 @@ mmr_district_df_clean <- mmr_district_df %>%
     mean_val = mean(c_across(K:G12), na.rm = TRUE),
     across(K:G12, ~ ifelse(is.na(.x), mean_val, .x)),
     mmr = rowSums(
-    cbind(
-      K  * grade_weights["K"],
-      G1 * grade_weights["G1"],
-      G2 * grade_weights["G2"],
-      G3 * grade_weights["G3"],
-      G4 * grade_weights["G4"],
-      G5 * grade_weights["G5"],
-      G6 * grade_weights["G6"],
-      G7 * grade_weights["G7"],
-      G8 * grade_weights["G8"],
-      G9 * grade_weights["G9"],
-      G10 * grade_weights["G10"],
-      G11 * grade_weights["G11"],
-      G12 * grade_weights["G12"]
+      cbind(
+        K  * grade_weights["K"],
+        G1 * grade_weights["G1"],
+        G2 * grade_weights["G2"],
+        G3 * grade_weights["G3"],
+        G4 * grade_weights["G4"],
+        G5 * grade_weights["G5"],
+        G6 * grade_weights["G6"],
+        G7 * grade_weights["G7"],
+        G8 * grade_weights["G8"],
+        G9 * grade_weights["G9"],
+        G10 * grade_weights["G10"],
+        G11 * grade_weights["G11"],
+        G12 * grade_weights["G12"]
       )
     )
-    ) %>%
+  ) %>%
   select(
     district,
     county,
@@ -369,11 +381,10 @@ mmr_district_df_clean <- mmr_district_df %>%
 
 
 
-#--------------------------------
-# 04. Load District Population
-#--------------------------------
 
-district_pop_path <- "rawData/red635_schooldistrict_population_sy2324.xlsx"
+# Load District Population
+
+district_pop_path <- "RawData/red635_schooldistrict_population_sy2324.xlsx"
 pop_raw <- read_excel(district_pop_path, sheet = "Red635C", col_names = FALSE)
 
 pop_district_df <- pop_raw %>%
@@ -386,7 +397,7 @@ pop_district_df <- pop_raw %>%
   mutate(
     value = as.numeric(value),
     district = toupper(district),
-    marker = ifelse(marker == "Total:", "pop_total", "pop_under18"),,
+    marker = ifelse(marker == "Total:", "pop_total", "pop_under18"),
     district = str_replace_all(district, "\\bCONS ISD\\b", "CISD")
   ) %>%
   pivot_wider(
@@ -394,6 +405,7 @@ pop_district_df <- pop_raw %>%
     values_from = value
   )
 
+sum(duplicated(pop_district_df$district))
 
 pop_district_df_clean <- pop_district_df %>%
   mutate(
@@ -413,27 +425,24 @@ pop_district_df_clean <- pop_district_df %>%
 
 
 
-
-#--------------------------------
 # Merge mmr and population District with map and plot
-#--------------------------------
 
 merged_map_district_df <- tx_school_district_map_clean %>%
   left_join(
     pop_district_df_clean,
     by = "district"
-    ) %>%
+  ) %>%
   left_join(
     mmr_district_df_clean,
     by = "district"
-    )
+  )
 
 
-saveRDS(merged_map_district_df, "ProcessedData/merged_map_district_df.rds")
+# saveRDS(merged_map_district_df, "ProcessedData/merged_map_district_df.rds")
 
 
 
-p <- ggplot(merged_map_district_df) +
+p_district_mmr_weighted_map <- ggplot(merged_map_district_df) +
   geom_sf(
     aes(fill = mmr),
     color = "gray50",
@@ -458,52 +467,137 @@ p <- ggplot(merged_map_district_df) +
   )
 
 # save to file
-ggsave("Figures/texas_mmr_weighted_map.png",
-       plot = p,
-       width = 10,
-       height = 8, 
-       dpi = 300
-)
+# ggsave("Figures/district_mmr_weighted_map.png",
+#        plot = p_district_mmr_weighted_map,
+#        width = 10,
+#        height = 8, 
+#        dpi = 300
+# )
+# 
 
 
 
-#--------------------------------
-# MMR coverage for public schools at County level
-#--------------------------------
 
-weighted_mmr_county <- merged_map_district_df %>%
+# MMR coverage for public schools at County level ----
+
+# Read and clean 
+county_K_2025 <- read_excel(Kindergarten_path_2025, sheet = "Coverage by County", skip = 2)
+county_K_2024 <- read_excel(Kindergarten_path_2024, sheet = "Coverage by County", skip = 0)
+county_K_2023 <- read_excel(Kindergarten_path_2023, sheet = "Coverage by County", skip = 2)
+county_K_2022 <- read_excel(Kindergarten_path_2022, sheet = "Coverage by County", skip = 2)
+county_K_2021 <- read_excel(Kindergarten_path_2021, sheet = "Coverage by County", skip = 2)
+county_K_2020 <- read_excel(Kindergarten_path_2020, sheet = "Coverage by County", skip = 2)
+
+county_7th_2025 <- read_excel(Seventh_path_2025, sheet = "Coverage by County", skip = 2)
+county_7th_2024 <- read_excel(Seventh_path_2024, sheet = "Coverage by County", skip = 2)
+county_7th_2023 <- read_excel(Seventh_path_2023, sheet = "Coverage by County", skip = 2)
+county_7th_2022 <- read_excel(Seventh_path_2022, sheet = "Coverage by County", skip = 2)
+county_7th_2021 <- read_excel(Seventh_path_2021, sheet = "Coverage by County", skip = 2)
+county_7th_2020 <- read_excel(Seventh_path_2020, sheet = "Coverage by County", skip = 2)
+
+
+county_K_2025_mmr <- keep_cols_county(county_K_2025)
+county_K_2024_mmr <- keep_cols_county(county_K_2024)
+county_K_2023_mmr <- keep_cols_county(county_K_2023)
+county_K_2022_mmr <- keep_cols_county(county_K_2022)
+county_K_2021_mmr <- keep_cols_county(county_K_2021)
+county_K_2020_mmr <- keep_cols_county(county_K_2020)
+
+county_7th_2025_mmr <- keep_cols_county(county_7th_2025)
+county_7th_2024_mmr <- keep_cols_county(county_7th_2024)
+county_7th_2023_mmr <- keep_cols_county(county_7th_2023)
+county_7th_2022_mmr <- keep_cols_county(county_7th_2022)
+county_7th_2021_mmr <- keep_cols_county(county_7th_2021)
+county_7th_2020_mmr <- keep_cols_county(county_7th_2020)
+
+
+#  Merge all years 
+
+mmr_county_df <- county_K_2025_mmr %>% rename(K  = MMR) %>%
+  full_join(county_K_2024_mmr %>% rename(G1 = MMR), by = "county") %>%
+  full_join(county_K_2023_mmr %>% rename(G2 = MMR), by = "county") %>%
+  full_join(county_K_2022_mmr %>% rename(G3 = MMR), by = "county") %>%
+  full_join(county_K_2021_mmr %>% rename(G4 = MMR), by = "county") %>%
+  full_join(county_K_2020_mmr %>% rename(G5 = MMR), by = "county") %>%
+  
+  full_join(county_7th_2025_mmr %>% rename(G7  = MMR), by = "county") %>%
+  full_join(county_7th_2024_mmr %>% rename(G8  = MMR), by = "county") %>%
+  full_join(county_7th_2023_mmr %>% rename(G9  = MMR), by = "county") %>%
+  full_join(county_7th_2022_mmr %>% rename(G10 = MMR), by = "county") %>%
+  full_join(county_7th_2021_mmr %>% rename(G11 = MMR), by = "county") %>%
+  full_join(county_7th_2020_mmr %>% rename(G12 = MMR), by = "county") %>%
+  mutate(
+    G6 = rowMeans(select(., G5, G7), na.rm = TRUE)
+  ) %>%
+  select(county, K, G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12)
+
+
+
+mmr_county_df_clean <- mmr_county_df %>%
+  rowwise() %>%
+  mutate(
+    mean_val = mean(c_across(K:G12), na.rm = TRUE),
+    across(K:G12, ~ ifelse(is.na(.x), mean_val, .x)),
+    mmr = rowSums(
+      cbind(
+        K  * grade_weights["K"],
+        G1 * grade_weights["G1"],
+        G2 * grade_weights["G2"],
+        G3 * grade_weights["G3"],
+        G4 * grade_weights["G4"],
+        G5 * grade_weights["G5"],
+        G6 * grade_weights["G6"],
+        G7 * grade_weights["G7"],
+        G8 * grade_weights["G8"],
+        G9 * grade_weights["G9"],
+        G10 * grade_weights["G10"],
+        G11 * grade_weights["G11"],
+        G12 * grade_weights["G12"]
+      )
+    )
+  ) %>%
+  ungroup() %>%
+  select(
+    county,
+    mmr
+  )
+
+
+
+# county total and under18 population
+county_pop <- merged_map_district_df %>%
   st_drop_geometry() %>%
   group_by(
     county
-    ) %>%
-  mutate(
-    pop_proportion = pop_under18 / sum(pop_under18, na.rm = TRUE)
-    ) %>%
+  ) %>% 
   summarize(
-    mmr = sum(mmr*pop_proportion),
     pop_total = sum(pop_total),
     pop_under18 = sum(pop_under18)
   ) %>%
   na.omit() 
 
 
-#--------------------------------
-# Merge weighted mmr county with map and plot
-#--------------------------------
+
+# Merge weighted mmr county with map and pop and plot
+anti_join(tx_counties, county_pop, by = "county")
 
 
 merged_map_county_df <- left_join(
   tx_counties,
-  weighted_mmr_county, 
+  mmr_county_df_clean, 
   by = "county"
-)
+) %>%
+  left_join(
+    county_pop,
+    by = "county"
+  )
 
 
 saveRDS(merged_map_county_df, "ProcessedData/merged_map_county_df.rds")
 
 
 
-p <- ggplot(merged_map_county_df) +
+p_county_mmr_weighted_map <- ggplot(merged_map_county_df) +
   geom_sf(
     aes(fill = mmr),
     color = "gray30",
@@ -522,15 +616,19 @@ p <- ggplot(merged_map_county_df) +
   )
 
 # save to file
-ggsave("Figures/texas_county_mmr_weighted_map.png",
-       plot = p,
+ggsave("Figures/county_mmr_weighted_map.png",
+       plot = p_county_mmr_weighted_map,
        width = 10,
        height = 8, 
        dpi = 300
 )
 
 
-#-------------------Texas Population Flow------------------
+
+
+
+
+#Texas Population Flow-----
 
 # Download code for the county2county weeky flow for 2019
 # python download_weekly_data.py --start_year 2019 --start_month 1 --start_day 7 --end_year 2019 --end_month 12 --end_day 30 --output_folder weekly_flows  --county 
@@ -575,6 +673,15 @@ texas_flows_named <- texas_flows_all %>%
 
 # Save final result with county names
 write_csv(texas_flows_named, "ProcessedData/texas_county_flows_2019.csv")
+
+
+
+
+
+
+
+
+
 
 
 

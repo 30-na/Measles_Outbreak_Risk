@@ -1,0 +1,123 @@
+---
+title: "Ratio Analysis"
+output: pdf_document
+date: "2025-12-03"
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+```{r cars}
+# Load necessary library
+library(readr)
+
+# Read the CSV file
+df <- read_csv("RawData/measles_summary.csv")
+
+# View the data
+print(df)
+
+# Check structure
+str(df)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+### ---------------------------
+### Meta-analysis of ratios
+### ---------------------------
+
+# Adult (>=18) cases for each outbreak
+A <- c(163, 122, 247, 18, 53)   # Ohio, NYC, Texas, Kansas, New Mexico
+
+# Child (5–17) cases
+C <- c(151, 148, 286, 35, 23)
+
+# Names of outbreaks
+outbreaks <- c("Ohio 2014", "NYC 2019", "Texas 2025",
+               "Kansas 2025", "New Mexico 2025")
+
+# Compute ratios
+R <- A / C
+
+# Log ratios
+y <- log(R)
+
+# Standard error of log-ratio: sqrt( 1/A + 1/C )
+SE <- sqrt(1/A + 1/C)
+
+# Variances
+v <- SE^2
+
+# Inverse-variance weights
+w <- 1 / v
+
+# Fixed-effects pooled log-ratio
+mu_hat <- sum(w * y) / sum(w)
+
+# Standard error of pooled estimate
+SE_mu <- sqrt(1 / sum(w))
+
+# 95% confidence interval
+lower <- mu_hat - 1.96 * SE_mu
+upper <- mu_hat + 1.96 * SE_mu
+
+# Back-transform to ratio scale
+R_pooled <- exp(mu_hat)
+CI_lower <- exp(lower)
+CI_upper <- exp(upper)
+
+### ---------------------------
+### Print results
+### ---------------------------
+
+cat("Meta-analysis of Adult/Child Ratios\n")
+cat("----------------------------------------\n")
+cat("Pooled Ratio: ", round(R_pooled, 3), "\n")
+cat("95% CI:      ", round(CI_lower, 3), "–", round(CI_upper, 3), "\n\n")
+
+# Show each outbreak ratio
+results <- data.frame(
+  Outbreak = outbreaks,
+  Adults = A,
+  Children_5_17 = C,
+  Ratio = round(R, 3),
+  Log_Ratio = round(y, 3),
+  SE_Log_Ratio = round(SE, 3)
+)
+
+print(results)
+
+### ---------------------------
+### Optional: Forest plot
+### ---------------------------
+
+library(ggplot2)
+
+df_plot <- data.frame(
+  Outbreak = outbreaks,
+  Ratio = R,
+  Lower = exp(y - 1.96 * SE),
+  Upper = exp(y + 1.96 * SE)
+)
+
+ggplot(df_plot, aes(x = Outbreak, y = Ratio)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = Lower, ymax = Upper), width = 0.2) +
+  geom_hline(yintercept = R_pooled, color = "red", linetype = "dashed") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Meta-analysis of Adult/Child Ratios",
+       y = "Ratio (Adults / Children 5–17)",
+       x = "")
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
