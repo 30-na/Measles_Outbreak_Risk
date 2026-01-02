@@ -1,87 +1,74 @@
-# Measles Outbreak Risk Modeling in Texas Counties
+# Measles Outbreak Risk Modeling in Texas School Districts
 
-This repository contains a framework for modeling the risk of measles outbreaks across counties in Texas. The approach uses data on vaccination rates, population sizes, and human mobility, and evaluates the impact of several vaccination improvement strategies.
+This repository contains a framework for modeling the risk of measles outbreaks across **K–12 public school districts in Texas**. The approach uses district-level school vaccination coverage and enrollment data to estimate outbreak probability, attack rates, and expected outbreak sizes, and evaluates the impact of several vaccination improvement strategies.
 
 ## Objectives
 
-- Estimate the probability that an outbreak in one county will trigger secondary outbreaks in others.
-- Evaluate how vaccination improvements reduce outbreak risk.
-- Visualize risk using geographic and statistical plots.
+- Estimate the risk of measles outbreaks in Texas K–12 public school districts.
+- Evaluate how school-based vaccination improvements reduce outbreak risk.
+- Visualize outbreak risk using district-level geographic plots.
 
 ## Data Sources
 
 #### Vaccination Coverage
 - **Source**: Texas Department of State Health Services  
-- **Link**: [MMR Vaccination Coverage (DSHS)](https://www.dshs.texas.gov/immunizations/data/school/coverage)  
-- File used: `2023–2024_School_Vaccination_Coverage_Levels_Kindergarten.xlsx`
+- **Link**: https://www.dshs.texas.gov/immunizations/data/school/coverage  
+- **Files used**:
+  - Kindergarten MMR vaccination coverage by district (2019–2025)
+  - Seventh-grade MMR vaccination coverage by district (2019–2025)
 
-#### County Population
-- **Probable Source**: Texas Legislative Council (2020 Census Redistricting Data)  
-- **Link**: [Texas Capitol Data Portal](https://data.capitol.texas.gov/dataset/vtds)  
-- File used: `Counties_Pop.txt`  
-- Contains population data per county.
+#### School Enrollment
+- **Source**: Texas Education Agency  
+- **Link**: https://tea.texas.gov/texas-schools/accountability/academic-accountability/performance-reporting/texas-academic-performance-reports  
+- **File used**: `StudPgmStateDistrict25state.csv`  
+- Contains total K–12 public school enrollment by district.
 
-#### Mobility Flow Data
-- **Source**: GeoDS COVID-19 US Flows Repository  
-- **Link**: [https://github.com/GeoDS/COVID19USFlows](https://github.com/GeoDS/COVID19USFlows)  
-- Weekly county-to-county flows were downloaded using:
- 
-```bash 
-
-python download_weekly_data.py --start_year 2019 --start_month 1 --start_day 7 
---end_year 2019 \--end_month 12 --end_day 30 
---output_folder RawData/weekly_flows --county
-```
+#### Population Age Structure
+- **Source**: Texas Population Pyramids (2020)  
+- Used to derive grade-level population weights (ages 5–17) for estimating district-level K–12 MMR coverage.
 
 #### Geometries Data
-- **County Geometries**: TIGER/Line shapefiles via the `tigris` R package
-
-
+- **School District Geometries**: TIGER/Line shapefiles via the `tigris` R package
+- **County Geometries**: TIGER/Line county shapefiles (used for map overlays)
 
 ## Vaccination Strategies
 
 Four vaccination scenarios are analyzed:
 
-- **Strategy 0 (Baseline)**: Uses the actual vaccination rates.
-- **Strategy 1**: Sets all counties with MMR < 90% to exactly 90%.
-- **Strategy 2**: Sets all counties with MMR < 92% to exactly 92%.
-- **Strategy 3**: Increases all MMR rates by 5%, capped at 100%.
+- **Scenario 0 (Baseline)**: Uses the observed district-level K–12 MMR vaccination coverage.
+- **Scenario 1**: Kindergarten MMR vaccination coverage remains constant at the 2024–2025 level over the next five years.
+- **Scenario 2**: Any decline in kindergarten MMR coverage between 2020 and 2024 is reversed over the next five years.
+- **Scenario 3**: Kindergarten MMR vaccination coverage is increased to at least 95% over the next five years.
+- **Scenario 4**: All districts achieve and maintain at least 95% MMR vaccination coverage across K–12.
 
-These strategies are implemented in `calculate_outbreak_probability.R`.
+These strategies are implemented in `02_calculate_infection_proportion_and_plots.r`.
 
 ## Modeling Process
 
-- **Susceptible Population**: Calculated from MMR coverage and vaccine efficacy (97%).
-- **Outbreak Probability**: Probability of large outbreaks in each county.
+- **Susceptible Population**: Calculated from district-level K–12 MMR coverage and vaccine efficacy (97%).
+- **Outbreak Probability**: Probability that a measles outbreak takes off in each district.
 - **Internal Infection Probability**: Solves an implicit equation for the attack rate.
-- **Contact Matrices**:
-  -  Gravity model based on population and distance
-  -  Empirical 2019 mobility flow data
+- **Expected Outbreak Size**: Expected number of infected students in each district.
+- **Transmission Assumption**: Independent district-level outbreaks (no inter-district transmission).
 
-- **Transmission Probability**:
-  \( p_{ij} = 1 - (1 - q \cdot P_j^I \cdot p_i^s \cdot p_i^{mo})^{C_{ij}} \)  
-  where \( q = 0.9 \)
+Analyses are performed for R0 = 12 (baseline) and R0 = 15 (sensitivity analysis).
 
 ## Main Scripts
 
-- `read_clean_merge_data.R`:  
-  Prepares the cleaned datasets, merges vaccination and population info, computes distance matrices, and saves them.
+- `01_read_clean_merge_data.r` :
+  Reads and cleans multi-year vaccination data, reconstructs grade-specific K–12 coverage, applies population-based weighting, merges enrollment and district geometry data, and saves processed datasets.
 
-- `calculate_outbreak_probability.R`:  
-  Implements the epidemiological model and calculates transmission probabilities under each strategy and method.
-
-- `plots.R`:  
-  Generates maps and histograms for transmission probability and population at risk, under each strategy and method.
+- `02_calculate_infection_proportion_and_plots.r` :
+  Computes outbreak probability, attack rate, and expected outbreak size for all vaccination scenarios and generates district-level maps and figures.
 
 ## Outputs
 
 - **ProcessedData/**:
-  - `map_county.rds`: County-level merged data
-  - `distance_matrix_haversine_county.rds`: Distance matrix
-  - `pij_M*.rds`: Transmission matrices for all methods and strategies
+  - `merged_map_district_df.rds` : District-level vaccination, enrollment, and geometry data
+  - `map_district_infection_proportion.rds` : Outbreak probability, attack rate, and expected outbreak size
 
-- **Figures/county_transmission/**:
-  - Transmission risk maps per county
-  - Histograms of risk values and population at risk
-
-
+- **Figures/**:
+  - District-level maps of MMR vaccination coverage
+  - Expected attack rate maps
+  - Expected outbreak size maps
+  - Maps showing changes in attack rate under vaccination scenarios

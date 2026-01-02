@@ -352,19 +352,22 @@ display: none;
 </div>
 
 
-<div id="measles-outbreak-risk-modeling-in-texas-counties" class="section level1">
-<h1>Measles Outbreak Risk Modeling in Texas Counties</h1>
+<div id="measles-outbreak-risk-modeling-in-texas-school-districts" class="section level1">
+<h1>Measles Outbreak Risk Modeling in Texas School Districts</h1>
 <p>This repository contains a framework for modeling the risk of measles
-outbreaks across counties in Texas. The approach uses data on
-vaccination rates, population sizes, and human mobility, and evaluates
-the impact of several vaccination improvement strategies.</p>
+outbreaks across <strong>K–12 public school districts in Texas</strong>.
+The approach uses district-level school vaccination coverage and
+enrollment data to estimate outbreak probability, attack rates, and
+expected outbreak sizes, and evaluates the impact of several vaccination
+improvement strategies.</p>
 <div id="objectives" class="section level2">
 <h2>Objectives</h2>
 <ul>
-<li>Estimate the probability that an outbreak in one county will trigger
-secondary outbreaks in others.</li>
-<li>Evaluate how vaccination improvements reduce outbreak risk.</li>
-<li>Visualize risk using geographic and statistical plots.</li>
+<li>Estimate the risk of measles outbreaks in Texas K–12 public school
+districts.</li>
+<li>Evaluate how school-based vaccination improvements reduce outbreak
+risk.</li>
+<li>Visualize outbreak risk using district-level geographic plots.</li>
 </ul>
 </div>
 <div id="data-sources" class="section level2">
@@ -375,46 +378,44 @@ secondary outbreaks in others.</li>
 <li><strong>Source</strong>: Texas Department of State Health
 Services<br />
 </li>
-<li><strong>Link</strong>: <a href="https://www.dshs.texas.gov/immunizations/data/school/coverage">MMR
-Vaccination Coverage (DSHS)</a><br />
+<li><strong>Link</strong>: <a href="https://www.dshs.texas.gov/immunizations/data/school/coverage" class="uri">https://www.dshs.texas.gov/immunizations/data/school/coverage</a><br />
 </li>
-<li>File used:
-<code>2023–2024_School_Vaccination_Coverage_Levels_Kindergarten.xlsx</code></li>
+<li><strong>Files used</strong>:
+<ul>
+<li>Kindergarten MMR vaccination coverage by district (2019–2025)</li>
+<li>Seventh-grade MMR vaccination coverage by district (2019–2025)</li>
+</ul></li>
 </ul>
 </div>
-<div id="county-population" class="section level4">
-<h4>County Population</h4>
+<div id="school-enrollment" class="section level4">
+<h4>School Enrollment</h4>
 <ul>
-<li><strong>Probable Source</strong>: Texas Legislative Council (2020
-Census Redistricting Data)<br />
+<li><strong>Source</strong>: Texas Education Agency<br />
 </li>
-<li><strong>Link</strong>: <a href="https://data.capitol.texas.gov/dataset/vtds">Texas Capitol Data
-Portal</a><br />
+<li><strong>Link</strong>: <a href="https://tea.texas.gov/texas-schools/accountability/academic-accountability/performance-reporting/texas-academic-performance-reports" class="uri">https://tea.texas.gov/texas-schools/accountability/academic-accountability/performance-reporting/texas-academic-performance-reports</a><br />
 </li>
-<li>File used: <code>Counties_Pop.txt</code><br />
+<li><strong>File used</strong>:
+<code>StudPgmStateDistrict25state.csv</code><br />
 </li>
-<li>Contains population data per county.</li>
+<li>Contains total K–12 public school enrollment by district.</li>
 </ul>
 </div>
-<div id="mobility-flow-data" class="section level4">
-<h4>Mobility Flow Data</h4>
+<div id="population-age-structure" class="section level4">
+<h4>Population Age Structure</h4>
 <ul>
-<li><strong>Source</strong>: GeoDS COVID-19 US Flows Repository<br />
+<li><strong>Source</strong>: Texas Population Pyramids (2020)<br />
 </li>
-<li><strong>Link</strong>: <a href="https://github.com/GeoDS/COVID19USFlows">https://github.com/GeoDS/COVID19USFlows</a><br />
-</li>
-<li>Weekly county-to-county flows were downloaded using:</li>
+<li>Used to derive grade-level population weights (ages 5–17) for
+estimating district-level K–12 MMR coverage.</li>
 </ul>
-<pre class="bash"><code>
-python download_weekly_data.py --start_year 2019 --start_month 1 --start_day 7 
---end_year 2019 \--end_month 12 --end_day 30 
---output_folder RawData/weekly_flows --county</code></pre>
 </div>
 <div id="geometries-data" class="section level4">
 <h4>Geometries Data</h4>
 <ul>
-<li><strong>County Geometries</strong>: TIGER/Line shapefiles via the
-<code>tigris</code> R package</li>
+<li><strong>School District Geometries</strong>: TIGER/Line shapefiles
+via the <code>tigris</code> R package</li>
+<li><strong>County Geometries</strong>: TIGER/Line county shapefiles
+(used for map overlays)</li>
 </ul>
 </div>
 </div>
@@ -422,49 +423,49 @@ python download_weekly_data.py --start_year 2019 --start_month 1 --start_day 7
 <h2>Vaccination Strategies</h2>
 <p>Four vaccination scenarios are analyzed:</p>
 <ul>
-<li><strong>Strategy 0 (Baseline)</strong>: Uses the actual vaccination
-rates.</li>
-<li><strong>Strategy 1</strong>: Sets all counties with MMR &lt; 90% to
-exactly 90%.</li>
-<li><strong>Strategy 2</strong>: Sets all counties with MMR &lt; 92% to
-exactly 92%.</li>
-<li><strong>Strategy 3</strong>: Increases all MMR rates by 5%, capped
-at 100%.</li>
+<li><strong>Scenario 0 (Baseline)</strong>: Uses the observed
+district-level K–12 MMR vaccination coverage.</li>
+<li><strong>Scenario 1</strong>: Kindergarten MMR vaccination coverage
+remains constant at the 2024–2025 level over the next five years.</li>
+<li><strong>Scenario 2</strong>: Any decline in kindergarten MMR
+coverage between 2020 and 2024 is reversed over the next five
+years.</li>
+<li><strong>Scenario 3</strong>: Kindergarten MMR vaccination coverage
+is increased to at least 95% over the next five years.</li>
+<li><strong>Scenario 4</strong>: All districts achieve and maintain at
+least 95% MMR vaccination coverage across K–12.</li>
 </ul>
 <p>These strategies are implemented in
-<code>calculate_outbreak_probability.R</code>.</p>
+<code>02_calculate_infection_proportion_and_plots.r</code>.</p>
 </div>
 <div id="modeling-process" class="section level2">
 <h2>Modeling Process</h2>
 <ul>
-<li><strong>Susceptible Population</strong>: Calculated from MMR
-coverage and vaccine efficacy (97%).</li>
-<li><strong>Outbreak Probability</strong>: Probability of large
-outbreaks in each county.</li>
+<li><strong>Susceptible Population</strong>: Calculated from
+district-level K–12 MMR coverage and vaccine efficacy (97%).</li>
+<li><strong>Outbreak Probability</strong>: Probability that a measles
+outbreak takes off in each district.</li>
 <li><strong>Internal Infection Probability</strong>: Solves an implicit
 equation for the attack rate.</li>
-<li><strong>Contact Matrices</strong>:
-<ul>
-<li>Gravity model based on population and distance</li>
-<li>Empirical 2019 mobility flow data</li>
-</ul></li>
-<li><strong>Transmission Probability</strong>: <span class="math inline">\(p_{ij} = 1 - (1 - q \cdot P_j^I \cdot p_i^s \cdot
-p_i^{mo})^{C_{ij}}\)</span><br />
-where <span class="math inline">\(q = 0.9\)</span></li>
+<li><strong>Expected Outbreak Size</strong>: Expected number of infected
+students in each district.</li>
+<li><strong>Transmission Assumption</strong>: Independent district-level
+outbreaks (no inter-district transmission).</li>
 </ul>
+<p>Analyses are performed for R0 = 12 (baseline) and R0 = 15
+(sensitivity analysis).</p>
 </div>
 <div id="main-scripts" class="section level2">
 <h2>Main Scripts</h2>
 <ul>
-<li><p><code>read_clean_merge_data.R</code>:<br />
-Prepares the cleaned datasets, merges vaccination and population info,
-computes distance matrices, and saves them.</p></li>
-<li><p><code>calculate_outbreak_probability.R</code>:<br />
-Implements the epidemiological model and calculates transmission
-probabilities under each strategy and method.</p></li>
-<li><p><code>plots.R</code>:<br />
-Generates maps and histograms for transmission probability and
-population at risk, under each strategy and method.</p></li>
+<li><p><code>01_read_clean_merge_data.r</code> : Reads and cleans
+multi-year vaccination data, reconstructs grade-specific K–12 coverage,
+applies population-based weighting, merges enrollment and district
+geometry data, and saves processed datasets.</p></li>
+<li><p><code>02_calculate_infection_proportion_and_plots.r</code> :
+Computes outbreak probability, attack rate, and expected outbreak size
+for all vaccination scenarios and generates district-level maps and
+figures.</p></li>
 </ul>
 </div>
 <div id="outputs" class="section level2">
@@ -472,16 +473,17 @@ population at risk, under each strategy and method.</p></li>
 <ul>
 <li><strong>ProcessedData/</strong>:
 <ul>
-<li><code>map_county.rds</code>: County-level merged data</li>
-<li><code>distance_matrix_haversine_county.rds</code>: Distance
-matrix</li>
-<li><code>pij_M*.rds</code>: Transmission matrices for all methods and
-strategies</li>
+<li><code>merged_map_district_df.rds</code> : District-level
+vaccination, enrollment, and geometry data</li>
+<li><code>map_district_infection_proportion.rds</code> : Outbreak
+probability, attack rate, and expected outbreak size</li>
 </ul></li>
-<li><strong>Figures/county_transmission/</strong>:
+<li><strong>Figures/</strong>:
 <ul>
-<li>Transmission risk maps per county</li>
-<li>Histograms of risk values and population at risk</li>
+<li>District-level maps of MMR vaccination coverage</li>
+<li>Expected attack rate maps</li>
+<li>Expected outbreak size maps</li>
+<li>Maps showing changes in attack rate under vaccination scenarios</li>
 </ul></li>
 </ul>
 </div>
