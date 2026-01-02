@@ -9,7 +9,7 @@ library(stringdist)
 library(stringr)
 library(sf)
 library(tidyr)
-
+library(tidyverse)
 
 
 
@@ -345,7 +345,7 @@ mmr_district_df_clean <- mmr_district_df %>%
       district == "KENEDY COUNTY WIDE CSD" ~ "KENEDY COUNTY-WIDE COMMON SCHOOL DISTRICT",
       TRUE ~ district
     )
-  ) %>%
+  )%>%
   rowwise() %>%
   mutate(
     mean_val = mean(c_across(K:G12), na.rm = TRUE),
@@ -369,6 +369,7 @@ mmr_district_df_clean <- mmr_district_df %>%
       )
     ),
     
+    # Scenario 01 vaccine uptake at kindergarten remains constant over the next 5 years
     mmr1 = rowSums(
       cbind(
         K  * grade_weights["K"],
@@ -386,7 +387,7 @@ mmr_district_df_clean <- mmr_district_df %>%
         G7 * grade_weights["G12"]
       )
     ),
-    
+    # Scenario 02 vaccine uptake trend is reversed over the next 5 years
     k_slope = coef(lm(c(G4, G3, G2, G1, K) ~ c(1:5) ))[2],
     mmr2 = case_when(
       k_slope < 0 ~ rowSums(
@@ -409,49 +410,64 @@ mmr_district_df_clean <- mmr_district_df %>%
       TRUE ~ mmr1
     ),
     
-    mmr3 = ifelse(mmr < .95, .95, mmr)
-    )%>%
+    # Scenario 3 kindergarten coverage to be 95% each year for the next 5 years. 
+    mmr3 = rowSums(
+      cbind(
+        pmax(K, 0.95) * grade_weights["K"],
+        pmax(K, 0.95) * grade_weights["G1"],
+        pmax(K, 0.95) * grade_weights["G2"],
+        pmax(K, 0.95) * grade_weights["G3"],
+        pmax(K, 0.95) * grade_weights["G4"],
+        K * grade_weights["G5"],
+        G1 * grade_weights["G6"],
+        G2 * grade_weights["G7"],
+        G3 * grade_weights["G8"],
+        G4 * grade_weights["G9"],
+        G5 * grade_weights["G10"],
+        G6 * grade_weights["G11"],
+        G7 * grade_weights["G12"]
+      )
+    ),
+    
+    # scenario 04 all districts with total coverage below 95% are raised to 95% coverage
+    mmr4 = ifelse(mmr < .95, .95, mmr)
+  )%>%
   select(
     district,
     county,
     mmr,
     mmr1,
     mmr2,
-    mmr3
+    mmr3,
+    mmr4
   )
-
-# duplicate_id <- mmr_district_df %>%
-#   group_by(id) %>%
-#   filter(n() > 1) %>%
-#   arrange(id)
-
 
 
 
 # Load District Population
 
-district_pop_path <- "RawData/red635_schooldistrict_population_sy2324.xlsx"
-pop_raw <- read_excel(district_pop_path, sheet = "Red635C", col_names = FALSE)
+district_pop_path <- "RawData/StudPgmStateDistrict25state.csv"
+pop_raw <- read_csv(district_pop_path, skip = 5)
+
 
 pop_district_df <- pop_raw %>%
-  select(1, 4, 5) %>%                                 
-  setNames(c("district", "marker", "value")) %>%      
-  tidyr::fill(district) %>%                           
-  filter(
-    marker %in% c("Total:", "<18:")
-  ) %>%         
+select(
+  district = "DISTRICT NAME",
+  enrollment = "ALL ENROLLMENT",
+  district_number = "DISTRICT NUMBER"
+) %>%
   mutate(
-    value = as.numeric(value),
-    district = toupper(district),
-    marker = ifelse(marker == "Total:", "pop_total", "pop_under18"),
-    district = str_replace_all(district, "\\bCONS ISD\\b", "CISD")
+    enrollment = as.numeric(enrollment),
+    enrollment = if_else(district == "SAN VICENTE ISD", 10, enrollment)
   ) %>%
-  pivot_wider(
-    names_from = marker,
-    values_from = value
-  )
+  drop_na()
 
-sum(duplicated(pop_district_df$district))
+print(pop_raw[
+  duplicated(pop_raw$`DISTRICT NAME`) |
+    duplicated(pop_raw$`DISTRICT NAME`, fromLast = TRUE),
+], n=30)
+
+
 
 pop_district_df_clean <- pop_district_df %>%
   mutate(
@@ -460,15 +476,86 @@ pop_district_df_clean <- pop_district_df %>%
   ) %>%
   mutate(
     district = case_when(
+      district == "GOLD BURG ISD" ~ "GOLD-BURG ISD",
       district == "STAFFORD MSD" ~ "STAFFORD MUNICIPAL SCHOOL DISTRICT",
-      district == "DOSS CONS COMMON SCHOOL DISTRICT" ~ "DOSS CONSOLIDATED COMMON SCHOOL DISTRICT",
       district == "LAPOYNOR ISD" ~ "LAPOYNER ISD",
-      district == "CROCKETT COUNTY CONS COMMON SCHOOL DISTRICT" ~ "CROCKETT COUNTY CONSOLIDATED COMMON SCHOOL DISTRICT",
       district == "HAMLIN COLLEGIATE ISD" ~ "HAMLIN ISD",
+      
+      district == "EAGLE MT-SAGINAW ISD" ~ "EAGLE MOUNTAIN-SAGINAW ISD",
+      
+      district == "FT DAVIS ISD" ~ "FORT DAVIS ISD",
+      district == "FT HANCOCK ISD" ~ "FORT HANCOCK ISD",
+      district == "FT SAM HOUSTON ISD" ~ "FORT SAM HOUSTON ISD",
+      
+      district == "GOLDTHWAITE ISD" ~ "GOLDTHWAITE CONSOLIDATED ISD",
+      district == "KENEDY COUNTY WIDE COMMON SCHOOL DISTRICT" ~ "KENEDY COUNTY-WIDE COMMON SCHOOL DISTRICT",
+      district == "SCHERTZ-CIBOLO-U CITY ISD" ~ "SCHERTZ-CIBOLO-UNIVERSAL CITY ISD",
+      district == "HAMLIN COLLEGIATE ISD" ~ "HAMLIN ISD",
+      
       TRUE ~ district
     )
+  ) %>%
+  mutate(
+    district = case_when(
+      # BIG SANDY ISD
+      district == "BIG SANDY ISD" & district_number == "230901" ~ "BIG SANDY ISD (UPSHUR)",
+      district == "BIG SANDY ISD" & district_number == "187901" ~ "BIG SANDY ISD (POLK)",
+      
+      # CENTERVILLE ISD
+      district == "CENTERVILLE ISD" & district_number == "145902" ~ "CENTERVILLE ISD (LEON)",
+      district == "CENTERVILLE ISD" & district_number == "228904" ~ "CENTERVILLE ISD (TRINITY)",
+      
+      # CHAPEL HILL ISD
+      district == "CHAPEL HILL ISD" & district_number == "212909" ~ "CHAPEL HILL ISD (SMITH)",
+      district == "CHAPEL HILL ISD" & district_number == "225906" ~ "CHAPEL HILL ISD (TITUS)",
+      
+      # DAWSON ISD
+      district == "DAWSON ISD" & district_number == "175904" ~ "DAWSON ISD (NAVARRO)",
+      district == "DAWSON ISD" & district_number == "058902" ~ "DAWSON ISD (DAWSON)",
+      
+      # EDGEWOOD ISD
+      district == "EDGEWOOD ISD" & district_number == "234903" ~ "EDGEWOOD ISD (VAN ZANDT)",
+      district == "EDGEWOOD ISD" & district_number == "015905" ~ "EDGEWOOD ISD (BEXAR)",
+      
+      # HIGHLAND PARK ISD
+      district == "HIGHLAND PARK ISD" & district_number == "057911" ~ "HIGHLAND PARK ISD (DALLAS)",
+      district == "HIGHLAND PARK ISD" & district_number == "188903" ~ "HIGHLAND PARK ISD (POTTER)",
+      
+      # HUBBARD ISD
+      district == "HUBBARD ISD" & district_number == "019913" ~ "HUBBARD ISD (BOWIE)",
+      district == "HUBBARD ISD" & district_number == "109905" ~ "HUBBARD ISD (HILL)",
+      
+      # MIDWAY ISD
+      district == "MIDWAY ISD" & district_number == "039905" ~ "MIDWAY ISD (CLAY)",
+      district == "MIDWAY ISD" & district_number == "161903" ~ "MIDWAY ISD (MCLENNAN)",
+      
+      # NORTHSIDE ISD
+      district == "NORTHSIDE ISD" & district_number == "244905" ~ "NORTHSIDE ISD (WILBARGER)",
+      district == "NORTHSIDE ISD" & district_number == "015915" ~ "NORTHSIDE ISD (BEXAR)",
+      
+      # VALLEY VIEW ISD
+      district == "VALLEY VIEW ISD" & district_number == "108916" ~ "VALLEY VIEW ISD (HIDALGO)",
+      district == "VALLEY VIEW ISD" & district_number == "049903" ~ "VALLEY VIEW ISD (COOKE)",
+      
+      # WYLIE ISD
+      district == "WYLIE ISD" & district_number == "043914" ~ "WYLIE ISD (COLLIN)",
+      district == "WYLIE ISD" & district_number == "221912" ~ "WYLIE ISD (TAYLOR)",
+      
+      TRUE ~ district
+    )
+  ) %>%
+  select(
+    district,
+    enrollment
   )
 
+
+missing_districts <- tx_school_district_map_clean %>%
+  distinct(district) %>%
+  anti_join(
+    pop_district_df_clean %>% distinct(district),
+    by = "district"
+  )
 
 
 # Merge mmr and population District with map and plot
@@ -493,24 +580,31 @@ p_district_mmr_weighted_map <- ggplot(merged_map_district_df) +
     aes(fill = mmr),
     color = "gray50",
     size = 0.1
-  ) + 
+  ) +
   geom_sf(
     data = tx_counties,
     fill = NA,
     color = "gray20",
     size = 0.4
-  ) + 
+  ) +
   scale_fill_gradientn(
     colors = c("#d73027", "#fee08b", "#1a9850"),  # soft red → light yellow → muted green
-    limits = c(0.5, 1.0),
+    limits = c(0.6, 1.0),
     na.value = "lightgray",
     labels = scales::percent_format(accuracy = 1)
   ) +
-  theme_minimal() +
   labs(
-    title = "Texas School Districts — MMR Coverage (2024)",
+    title = "School district-level MMR vaccination coverage",
     fill = "MMR"
-  )
+  ) +
+    theme(
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background  = element_rect(fill = "white", color = NA),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(size = 20, face = "bold", hjust = 0)
+    ) +
+  coord_sf(datum = NA)
 
 #save to file
 ggsave("Figures/district_mmr_weighted_map.png",
@@ -519,215 +613,3 @@ ggsave("Figures/district_mmr_weighted_map.png",
        height = 8,
        dpi = 300
 )
-
-
-
-
-
-# MMR coverage for public schools at County level ----
-
-# Read and clean 
-county_K_2025 <- read_excel(Kindergarten_path_2025, sheet = "Coverage by County", skip = 2)
-county_K_2024 <- read_excel(Kindergarten_path_2024, sheet = "Coverage by County", skip = 0)
-county_K_2023 <- read_excel(Kindergarten_path_2023, sheet = "Coverage by County", skip = 2)
-county_K_2022 <- read_excel(Kindergarten_path_2022, sheet = "Coverage by County", skip = 2)
-county_K_2021 <- read_excel(Kindergarten_path_2021, sheet = "Coverage by County", skip = 2)
-county_K_2020 <- read_excel(Kindergarten_path_2020, sheet = "Coverage by County", skip = 2)
-
-county_7th_2025 <- read_excel(Seventh_path_2025, sheet = "Coverage by County", skip = 2)
-county_7th_2024 <- read_excel(Seventh_path_2024, sheet = "Coverage by County", skip = 2)
-county_7th_2023 <- read_excel(Seventh_path_2023, sheet = "Coverage by County", skip = 2)
-county_7th_2022 <- read_excel(Seventh_path_2022, sheet = "Coverage by County", skip = 2)
-county_7th_2021 <- read_excel(Seventh_path_2021, sheet = "Coverage by County", skip = 2)
-county_7th_2020 <- read_excel(Seventh_path_2020, sheet = "Coverage by County", skip = 2)
-
-
-county_K_2025_mmr <- keep_cols_county(county_K_2025)
-county_K_2024_mmr <- keep_cols_county(county_K_2024)
-county_K_2023_mmr <- keep_cols_county(county_K_2023)
-county_K_2022_mmr <- keep_cols_county(county_K_2022)
-county_K_2021_mmr <- keep_cols_county(county_K_2021)
-county_K_2020_mmr <- keep_cols_county(county_K_2020)
-
-county_7th_2025_mmr <- keep_cols_county(county_7th_2025)
-county_7th_2024_mmr <- keep_cols_county(county_7th_2024)
-county_7th_2023_mmr <- keep_cols_county(county_7th_2023)
-county_7th_2022_mmr <- keep_cols_county(county_7th_2022)
-county_7th_2021_mmr <- keep_cols_county(county_7th_2021)
-county_7th_2020_mmr <- keep_cols_county(county_7th_2020)
-
-
-#  Merge all years 
-
-mmr_county_df <- county_K_2025_mmr %>% rename(K  = MMR) %>%
-  full_join(county_K_2024_mmr %>% rename(G1 = MMR), by = "county") %>%
-  full_join(county_K_2023_mmr %>% rename(G2 = MMR), by = "county") %>%
-  full_join(county_K_2022_mmr %>% rename(G3 = MMR), by = "county") %>%
-  full_join(county_K_2021_mmr %>% rename(G4 = MMR), by = "county") %>%
-  full_join(county_K_2020_mmr %>% rename(G5 = MMR), by = "county") %>%
-  
-  full_join(county_7th_2025_mmr %>% rename(G7  = MMR), by = "county") %>%
-  full_join(county_7th_2024_mmr %>% rename(G8  = MMR), by = "county") %>%
-  full_join(county_7th_2023_mmr %>% rename(G9  = MMR), by = "county") %>%
-  full_join(county_7th_2022_mmr %>% rename(G10 = MMR), by = "county") %>%
-  full_join(county_7th_2021_mmr %>% rename(G11 = MMR), by = "county") %>%
-  full_join(county_7th_2020_mmr %>% rename(G12 = MMR), by = "county") %>%
-  mutate(
-    G6 = rowMeans(select(., G5, G7), na.rm = TRUE)
-  ) %>%
-  select(county, K, G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12)
-
-
-
-mmr_county_df_clean <- mmr_county_df %>%
-  rowwise() %>%
-  mutate(
-    mean_val = mean(c_across(K:G12), na.rm = TRUE),
-    across(K:G12, ~ ifelse(is.na(.x), mean_val, .x)),
-    mmr = rowSums(
-      cbind(
-        K  * grade_weights["K"],
-        G1 * grade_weights["G1"],
-        G2 * grade_weights["G2"],
-        G3 * grade_weights["G3"],
-        G4 * grade_weights["G4"],
-        G5 * grade_weights["G5"],
-        G6 * grade_weights["G6"],
-        G7 * grade_weights["G7"],
-        G8 * grade_weights["G8"],
-        G9 * grade_weights["G9"],
-        G10 * grade_weights["G10"],
-        G11 * grade_weights["G11"],
-        G12 * grade_weights["G12"]
-      )
-    )
-  ) %>%
-  ungroup() %>%
-  select(
-    county,
-    mmr
-  )
-
-
-
-# county total and under18 population
-county_pop <- merged_map_district_df %>%
-  st_drop_geometry() %>%
-  group_by(
-    county
-  ) %>% 
-  summarize(
-    pop_total = sum(pop_total),
-    pop_under18 = sum(pop_under18)
-  ) %>%
-  na.omit() 
-
-
-
-# Merge weighted mmr county with map and pop and plot
-anti_join(tx_counties, county_pop, by = "county")
-
-
-merged_map_county_df <- left_join(
-  tx_counties,
-  mmr_county_df_clean, 
-  by = "county"
-) %>%
-  left_join(
-    county_pop,
-    by = "county"
-  )
-
-
-saveRDS(merged_map_county_df, "ProcessedData/merged_map_county_df.rds")
-
-
-
-p_county_mmr_weighted_map <- ggplot(merged_map_county_df) +
-  geom_sf(
-    aes(fill = mmr),
-    color = "gray30",
-    size = 0.1
-  ) +
-  scale_fill_gradientn(
-    colors = c("#d73027", "#fee08b", "#1a9850"),  # soft red → light yellow → muted green
-    limits = c(0.8, 1.0),
-    na.value = "lightgray",
-    labels = scales::percent_format(accuracy = 1)
-  ) +
-  theme_minimal() +
-  labs(
-    title = "Texas Counties — MMR Coverage (2024)",
-    fill = "MMR"
-  )
-
-# save to file
-ggsave("Figures/county_mmr_weighted_map.png",
-       plot = p_county_mmr_weighted_map,
-       width = 10,
-       height = 8, 
-       dpi = 300
-)
-
-
-
-
-
-
-#Texas Population Flow-----
-
-# Download code for the county2county weeky flow for 2019
-# python download_weekly_data.py --start_year 2019 --start_month 1 --start_day 7 --end_year 2019 --end_month 12 --end_day 30 --output_folder weekly_flows  --county 
-
-
-
-# Folder with weekly CSVs
-file_list <- list.files("RawData/weekly_flows/county2county/", full.names = TRUE, pattern = "\\.csv$")
-
-# Helper function to filter for Texas-only flows
-is_texas_fips <- function(fips) {
-  substr(fips, 1, 2) == "48"
-}
-
-# Read and filter all files
-texas_flows <- lapply(file_list, function(file) {
-  df <- read_csv(file, col_types = cols(.default = "c"))  # read as character to preserve leading 0s
-  df <- df %>%
-    filter(is_texas_fips(geoid_o) & is_texas_fips(geoid_d))
-})
-
-# Combine into one data frame
-texas_flows_all <- bind_rows(texas_flows)
-
-# Get county names from tigris
-tx_counties <- counties(state = "TX", cb = TRUE, year = 2020) %>%
-  st_drop_geometry() %>%
-  select(GEOID, NAME)
-
-
-
-# Add county names to origin and destination
-texas_flows_named <- texas_flows_all %>%
-  left_join(tx_counties, by = c("geoid_o" = "GEOID")) %>%
-  rename(county_o = NAME) %>%
-  left_join(tx_counties, by = c("geoid_d" = "GEOID")) %>%
-  rename(county_d = NAME) %>%
-  mutate(
-    county_o = toupper(county_o),
-    county_d = toupper(county_d)
-  )
-
-# Save final result with county names
-write_csv(texas_flows_named, "ProcessedData/texas_county_flows_2019.csv")
-
-
-
-
-
-
-
-
-
-
-
-
