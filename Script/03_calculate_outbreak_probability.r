@@ -6,9 +6,11 @@ library(dplyr)
 library(tidyr)
 library(readr)
 library(tigris)
-
+library(stringr)
 #Load datasets ----
-infection_county <- readRDS("ProcessedData/map_county_infection_proportion_ratio01_efficacy0.97.rds")
+infection_county <- readRDS("ProcessedData/map_county_infection_proportion.rds")
+infection_district <- readRDS("ProcessedData/map_district_infection_proportion.rds")
+
 
 # Population Flow County
 texas_flows <- read_csv("ProcessedData/texas_county_flows_2019.csv", 
@@ -113,3 +115,103 @@ saveRDS(county_pij_M7_S3, "ProcessedData/county_pij_M7_S3.rds")
 
 
 
+
+#-------------------Transmission/ Outbreak Probability District------------------
+
+compute_transmission_matrix_district <- function(
+    Cij = C7, 
+    map_data = infection_district, 
+    origin_scaler=NULL, 
+    dest_scaler=NULL, 
+    strategy = 0,
+    q = .9
+    ) {
+  suffix <- ifelse(strategy == 0, "", as.character(strategy))
+  
+  district_pop_ratio <- map_data %>%
+    st_drop_geometry() %>%                
+    group_by(
+      County
+    ) %>%
+    mutate(
+      county_pop_total = sum(pop_total, na.rm = TRUE),
+      scaler = pop_total / county_pop_total
+    ) %>%
+    ungroup() %>%
+    filter(
+      !is.na(County)
+    )
+  
+  district_names <- district_pop_ratio$district
+  county_names <- district_pop_ratio$County
+  
+  psi <- district_pop_ratio[[paste0("susceptible_prop", suffix)]]
+  pmo <- district_pop_ratio[[paste0("outbreak_prob", suffix)]]
+  Pj <- district_pop_ratio[[paste0("adult_infection_prob", suffix)]]
+  
+  n <- length(district_names)
+  scaler <- district_pop_ratio$scaler
+  transmission_mat <- matrix(NA, n, n, dimnames = list(district_names, district_names))
+  
+  for (i in seq_len(n)) {
+    for (j in seq_len(n)) {
+      district_i <- district_names[i]
+      district_j <- district_names[j]
+      
+      county_i <- county_names[i]
+      county_j <- county_names[j]
+      
+      base <- q * Pj[j] * psi[i] * pmo[i]
+      
+      scaler_i <- scaler[district_names == district_i]
+      scaler_j <- scaler[district_names == district_j]
+      
+      if (is.null(dest_scaler)) {
+        scaler_i <- scaler[district_names == district_i]
+      } else {
+        scaler_i <- dest_scaler
+      }
+      
+      if (is.null(origin_scaler)) {
+        scaler_j <- scaler[district_names == district_j]
+      } else {
+        scaler_j <- origin_scaler
+      }
+      
+      cij_base <- Cij[county_i, county_j]
+      cij_scaled <- cij_base * scaler_i * 1
+      
+      if (is.na(cij_scaled)) {
+        transmission_mat[district_i, district_j] <- NA
+      } else {
+        transmission_mat[district_i, district_j] <- 1 - (1 - base)^cij_scaled
+      }
+      
+    }
+  }
+  
+  return(transmission_mat)
+}
+
+
+district_pij_M7_S0_CountyToDistrict <- compute_transmission_matrix_district(C7, infection_district, origin_scaler=1, dest_scaler=NULL, strategy = 0)
+district_pij_M7_S1_CountyToDistrict <- compute_transmission_matrix_district(C7, infection_district, origin_scaler=1, dest_scaler=NULL, strategy = 1)
+district_pij_M7_S2_CountyToDistrict <- compute_transmission_matrix_district(C7, infection_district, origin_scaler=1, dest_scaler=NULL, strategy = 2)
+district_pij_M7_S3_CountyToDistrict <- compute_transmission_matrix_district(C7, infection_district, origin_scaler=1, dest_scaler=NULL, strategy = 3)
+
+saveRDS(district_pij_M7_S0_CountyToDistrict, "ProcessedData/district_pij_M7_S0_CountyToDistrict.rds")
+saveRDS(district_pij_M7_S1_CountyToDistrict, "ProcessedData/district_pij_M7_S1_CountyToDistrict.rds")
+saveRDS(district_pij_M7_S2_CountyToDistrict, "ProcessedData/district_pij_M7_S2_CountyToDistrict.rds")
+saveRDS(district_pij_M7_S3_CountyToDistrict, "ProcessedData/district_pij_M7_S3_CountyToDistrict.rds")
+
+
+
+district_pij_M7_S0_CountyToCounty <- compute_transmission_matrix_district(C7, infection_district, origin_scaler=1, dest_scaler=1, strategy = 0)
+district_pij_M7_S1_CountyToCounty <- compute_transmission_matrix_district(C7, infection_district, origin_scaler=1, dest_scaler=1, strategy = 1)
+district_pij_M7_S2_CountyToCounty <- compute_transmission_matrix_district(C7, infection_district, origin_scaler=1, dest_scaler=1, strategy = 2)
+district_pij_M7_S3_CountyToCounty <- compute_transmission_matrix_district(C7, infection_district, origin_scaler=1, dest_scaler=1, strategy = 3)
+
+saveRDS(district_pij_M7_S0_CountyToCounty, "ProcessedData/district_pij_M7_S0_CountyToCounty.rds")
+saveRDS(district_pij_M7_S1_CountyToCounty, "ProcessedData/district_pij_M7_S1_CountyToCounty.rds")
+saveRDS(district_pij_M7_S2_CountyToCounty, "ProcessedData/district_pij_M7_S2_CountyToCounty.rds")
+saveRDS(district_pij_M7_S3_CountyToCounty, "ProcessedData/district_pij_M7_S3_CountyToCounty.rds")

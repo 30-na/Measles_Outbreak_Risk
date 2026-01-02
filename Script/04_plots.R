@@ -5,8 +5,8 @@ library(grid)
 library(sf)
 
 # Load datasets ----
-infection_county   <- readRDS("ProcessedData/map_county_infection_proportion_ratio0.5_efficacy01.rds")
-
+infection_county   <- readRDS("ProcessedData/map_county_infection_proportion.rds")
+infection_district <- readRDS("ProcessedData/map_district_infection_proportion.rds")
 
 tx_counties <- counties(
   state = "TX",
@@ -76,6 +76,63 @@ compute_indirect_risk_county_new <- function(
   return(P_SG)
 }
 
+
+compute_indirect_risk_district_new <- function(
+    dist_mat_county_to_county,
+    dist_mat_county_to_dist,
+    district_origin = "LOOP ISD", 
+    threshold = -1
+) {
+  # Paper notation:
+  # P_{ij} = trans_mat[i, j]
+  # i = destination
+  # j = origin (index county)
+  
+  j <- toupper(district_origin) # origin county
+  districts <- rownames(dist_mat_county_to_county)
+  
+  if (!(j %in% districts))
+    stop("District origin not found in matrix.")
+  
+  # Extract the j-th column: P_{ij} for all i
+  p_all_j_county_to_dist <- dist_mat_county_to_dist[, j]
+  
+  # Output vector
+  P_SG <- rep(NA_real_, length(p_all_j_county_to_dist))
+  names(P_SG) <- districts
+  
+  # Loop over destination counties i
+  for (i in districts) {
+    
+    P_ij <- p_all_j_county_to_dist[i]   # direct probability j → i
+    
+    if (is.na(P_ij)) {
+      P_SG[i] <- NA
+      next
+    }
+    
+    # Identify intermediates k county
+    #intermediates_county <- names(Pkj)[!is.na(Pkj) & Pkj >= threshold & names(Pkj) != j]
+    intermediates_county <- names(p_all_j_county_to_dist)[!is.na(p_all_j_county_to_dist) & names(p_all_j_county_to_dist) != district_origin]
+    # Compute the product term
+    prod_term <- 1
+    for (k in intermediates_county) {
+      P_ik <- dist_mat_county_to_dist[i, k]   # k → i
+      P_kj <- dist_mat_county_to_county[k, j]   # j → k
+      if (is.na(P_ik)) next
+      prod_term <- prod_term * (1 - P_ik * P_kj)
+    }
+    
+    # Paper formula:
+    # P^{SG}_{ij} = 1 - (1 - P_{ij}) * product_k (1 - P_{ik} P_{kj})
+    P_SG[i] <- 1 - (1 - P_ij) * prod_term
+  }
+  
+  # Self infection is undefined
+  P_SG[j] <- NA
+  
+  return(P_SG)
+}
 
 
 # Figure 01 ------
@@ -170,6 +227,195 @@ figure_outbreaks_1st_2nd_county(method = 7, strategy = 0, county = "Gaines",    
 # figure_outbreaks_1st_2nd_county(method = 7, strategy = 0, county = "THROCKMORTON", out_dir="Figures/figure_01_THROCKMORTON.png")
 
 
+
+
+# Figure 01 District------
+
+figure_outbreaks_1st_2nd_disrict <- function(
+    method    = 7,
+    strategy  = 0,
+    district    = "LOOP ISD",
+    map_data  = infection_district,
+    out_dir   = "Figures/"
+) {
+  
+  
+  # Define breaks and labels
+  breaks     <- c(0, 0.2, 0.4, 0.6, 0.8, 1)
+  bin_labels <- c("0–0.2", "0.2–0.4", "0.4–0.6", "0.6–0.8", "0.8–1.0")
+  color_palette <- rev(c("#d73027", "#fc8d59", "#fee08b", "#91cf60", "#1a9850"))
+  
+  
+  dist_mat_county_to_county  <- readRDS(paste0("ProcessedData/district_pij_M", method, "_S", strategy, "_CountyToCounty.rds"))
+  dist_mat_county_to_dist  <- readRDS(paste0("ProcessedData/district_pij_M", method, "_S", strategy, "_CountyToDistrict.rds"))
+  
+ 
+  
+  district_upper <- toupper(district)
+  district_names <- toupper(map_data$district)
+  
+  direct_vec <- dist_mat_county_to_dist[match(district_names, rownames(dist_mat_county_to_dist)), district_upper]
+  
+  indirect_vec <- compute_indirect_risk_district_new(
+    dist_mat_county_to_county,
+    dist_mat_county_to_dist,
+    district_origin = district_upper
+  )
+  
+  county_name <- infection_district %>%
+    filter(district == district_upper) %>%
+    pull(County)
+  
+  highlighted_geom <- map_data %>% filter(toupper(County) == county_name)
+  
+  # Cut values into bins
+  map_data <- map_data %>%
+    mutate(
+      direct_bin = cut(
+        direct_vec,
+        breaks = breaks,
+        labels = bin_labels,
+        include.lowest = TRUE,
+        right = FALSE
+      ),
+      indirect_bin = cut(
+        indirect_vec,
+        breaks = breaks,
+        labels = bin_labels,
+        include.lowest = TRUE,
+        right = FALSE
+      )
+    )
+  
+  # Plot A: Direct
+  p1 <- ggplot(map_data) +
+    geom_sf(aes(fill = direct_bin), color = "gray40", size = 0.1) +
+    geom_sf(data = highlighted_geom, fill = "blue", color = "black", size = 0.3) +
+    #geom_sf(data = tx_counties, fill = NULL, color = "black", size = 0.3) +
+    scale_fill_manual(values = color_palette, drop = FALSE, name = "Outbreak Probability") +
+    labs(title = "A: Probability of First generation Outbreak") +
+    theme_void() +
+    theme(
+      plot.title      = element_text(hjust = 0.5, size = 13),
+      legend.position = "none"
+    )
+  
+  # Plot B: Indirect
+  p2 <- ggplot(map_data) +
+    geom_sf(aes(fill = indirect_bin), color = "gray40", size = 0.1) +
+    geom_sf(data = highlighted_geom, fill = "blue", color = "black", size = 0.3) +
+    #geom_sf(data = tx_counties, fill = NULL, color = "black", size = 0.3) +
+    scale_fill_manual(values = color_palette, drop = FALSE, name = "Outbreak Probability") +
+    labs(title = "B: Probability of First & Second generation Outbreak") +
+    theme_void() +
+    theme(
+      panel.grid  = element_blank(),
+      axis.text   = element_blank(),
+      axis.ticks  = element_blank(),
+      axis.title  = element_blank()
+    )
+  
+  legend   <- get_legend(p2)
+  p2_clean <- p2 + theme(legend.position = "none")
+  
+  row_plot   <- plot_grid(p1, p2_clean, nrow = 1, rel_widths = c(1, 1))
+  final_plot <- plot_grid(row_plot, legend, nrow = 1, rel_widths = c(2, 0.4))
+  
+  file_name <- paste0(out_dir)
+  ggsave(file_name, final_plot, width = 12, height = 6, dpi = 400)
+}
+
+
+figure_outbreaks_1st_2nd_disrict(method = 7, strategy = 0, district = "LOOP ISD", out_dir="Figures/figure_01_LOOP_R12.png")
+
+
+####################
+figure_outbreaks_1st_2nd_disrict <- function(
+  method    = 7,
+  strategy  = 0,
+  district  = "LOOP ISD",
+  map_data  = infection_district,
+  out_dir   = "Figures/"
+) {
+
+  color_palette <- c("#1a9850", "#fee08b", "#d73027")
+
+  dist_mat_county_to_county <- readRDS(
+    paste0("ProcessedData/district_pij_M", method, "_S", strategy, "_CountyToCounty.rds")
+  )
+  dist_mat_county_to_dist <- readRDS(
+    paste0("ProcessedData/district_pij_M", method, "_S", strategy, "_CountyToDistrict.rds")
+  )
+
+  district_upper <- toupper(district)
+
+  direct_vec <- dist_mat_county_to_dist[
+    match(toupper(map_data$district), rownames(dist_mat_county_to_dist)),
+    district_upper
+  ]
+
+  indirect_vec <- compute_indirect_risk_district_new(
+    dist_mat_county_to_county,
+    dist_mat_county_to_dist,
+    district_origin = district_upper
+  )
+
+  county_name <- map_data %>%
+    filter(toupper(district) == district_upper) %>%
+    pull(County)
+
+  highlighted_geom <- map_data %>%
+    filter(toupper(County) == county_name)
+
+  district_upper_all <- toupper(map_data$district)
+  
+  indirect_vec_aligned <- indirect_vec[
+    match(district_upper_all, names(indirect_vec))
+  ]
+  
+  direct_vec_aligned <- direct_vec[
+    match(district_upper_all, names(direct_vec))
+  ]
+  
+  map_data <- map_data %>%
+    mutate(
+      direct_val   = direct_vec_aligned,
+      indirect_val = indirect_vec_aligned
+    )
+  
+
+  p1 <- ggplot(map_data) +
+    geom_sf(aes(fill = direct_val), color = "gray40", size = 0.1) +
+    geom_sf(data = highlighted_geom, fill = "blue", color = "black", size = 0.3) +
+    geom_sf(data = tx_counties, fill = NA, color = "black", size = 0.3) +
+    scale_fill_gradientn(
+      colors = color_palette,
+      limits = c(0, 1),
+      name = "Outbreak Probability"
+    ) +
+    labs(title = "A: Probability of First-generation Outbreak") +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+
+  p2 <- ggplot(map_data) +
+    geom_sf(aes(fill = indirect_val), color = "gray40", size = 0.1) +
+    geom_sf(data = highlighted_geom, fill = "blue", color = "black", size = 0.3) +
+    geom_sf(data = tx_counties, fill = NA, color = "black", size = 0.3) +
+    scale_fill_gradientn(
+      colors = color_palette,
+      limits = c(0, 1),
+      name = "Outbreak Probability"
+    ) +
+    labs(title = "B: Probability of First & Second-generation Outbreak") +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+
+  final_plot <- cowplot::plot_grid(p1, p2, nrow = 1)
+
+  ggsave(out_dir, final_plot, width = 12, height = 6, dpi = 400)
+}
+
+####################
 
 # Figure 02 -----
 
@@ -637,3 +883,6 @@ figure_second_generation_strategies(method = 7, counties = c("Gaines"), strategi
 # figure_strategies_county(method=7, counties=c("Gaines"), strategies=c(1, 2, 3), map_data=infection_county)
 # 
 # 
+
+
+
