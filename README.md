@@ -25,7 +25,7 @@ This repository contains a framework for modeling the risk of measles outbreaks 
 
 #### Population Age Structure
 - **Source**: Texas Population Pyramids (2020)
-- **Link**: [https://tea.texas.gov/texas-schools/accountability/academic-accountability/performance-reporting/texas-academic-performance-reports](https://demographics.texas.gov/Interactive/2021/CBEstimates)
+- **Link**: https://demographics.texas.gov/Interactive/2021/CBEstimates
 - **File used**: `Texas.csv`
 - Used to derive grade-level population weights (ages 5–17) for estimating district-level K–12 MMR coverage.
 
