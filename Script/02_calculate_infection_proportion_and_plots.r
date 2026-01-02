@@ -79,7 +79,7 @@ infection_district <- mmr_district %>%
   )
 
 
-saveRDS(infection_district, "ProcessedData/map_district_infection_proportion_v02.rds")
+saveRDS(infection_district, "ProcessedData/map_district_infection_proportion.rds")
 
 # Visualization ------
 # Load County boundries
