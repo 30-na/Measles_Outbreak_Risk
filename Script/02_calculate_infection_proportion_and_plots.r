@@ -17,7 +17,7 @@ mmr_district <- readRDS("ProcessedData/merged_map_district_df.rds")
 
 # Set vaccine efficacy and basic reproduction number
 efficacy <- 0.97
-R0 <- 15
+R0 <- 13
 
 # Infection Proportion Functions ----
 # Interface (Lin. )
@@ -40,7 +40,8 @@ infection_district <- mmr_district %>%
     MMR1 = mmr1,
     MMR2 = mmr2,
     MMR3 = mmr3,
-    MMR4 = mmr4
+    MMR4 = mmr4,
+    MMR5 = mmr5
   ) %>%
   mutate(
 
@@ -51,6 +52,7 @@ infection_district <- mmr_district %>%
     under18_infection_prob2 = sapply(MMR2, find_internal_infection_lin),
     under18_infection_prob3 = sapply(MMR3, find_internal_infection_lin),
     under18_infection_prob4 = sapply(MMR4, find_internal_infection_lin),
+    under18_infection_prob5 = sapply(MMR5, find_internal_infection_lin),
     
     
     #P^(LO) = 1 − [1 / ((1−eV)R0)] outbreak probability
@@ -60,6 +62,7 @@ infection_district <- mmr_district %>%
     outbreak_prob2 = pmax(0, 1 - (1 / ((1 - efficacy * MMR2) * R0))),
     outbreak_prob3 = pmax(0, 1 - (1 / ((1 - efficacy * MMR3) * R0))),
     outbreak_prob4 = pmax(0, 1 - (1 / ((1 - efficacy * MMR4) * R0))),
+    outbreak_prob5 = pmax(0, 1 - (1 / ((1 - efficacy * MMR5) * R0))),
     
     # Outbreak size
     #Expected number of infected students
@@ -68,6 +71,8 @@ infection_district <- mmr_district %>%
     expected_outbreak_size2 = log10(outbreak_prob2 * (under18_infection_prob2 * enrollment)),
     expected_outbreak_size3 = log10(outbreak_prob3 * (under18_infection_prob3 * enrollment)),
     expected_outbreak_size4 = log10(outbreak_prob4 * (under18_infection_prob4 * enrollment)),
+    expected_outbreak_size5 = log10(outbreak_prob5 * (under18_infection_prob5 * enrollment)),
+    
     
     # Expected attach rate p^I * p^LO 
     # expected attack rate = attack rate * outbreak probability
@@ -75,7 +80,8 @@ infection_district <- mmr_district %>%
     expected_attack_rate1 = outbreak_prob1 * under18_infection_prob1,
     expected_attack_rate2 = outbreak_prob2 * under18_infection_prob2,
     expected_attack_rate3 = outbreak_prob3 * under18_infection_prob3,
-    expected_attack_rate4 = outbreak_prob4 * under18_infection_prob4
+    expected_attack_rate4 = outbreak_prob4 * under18_infection_prob4,
+    expected_attack_rate5 = outbreak_prob5 * under18_infection_prob5
   )
 
 
@@ -147,24 +153,26 @@ p_expected_size <- p_expected_size +
   labs(title = "B) Expected size of an unabated outbreak")+
   theme(
     plot.title = element_text(size = 20, face = "bold", hjust = 0)
-  )
+  )+ 
+  coord_sf(datum = NA)
 
 p_expected_attackrate <- p_expected_attackrate +
   labs(title = "A) Expected attack rate of an unabated outbreak")+
   theme(
     plot.title = element_text(size = 20, face = "bold", hjust = 0)
-  )
+  )+ 
+  coord_sf(datum = NA)
 
 p_combined <- (p_expected_attackrate + p_expected_size) +
   plot_annotation(
     title = "",
     theme = theme(
       plot.title = element_text(size = 22, face = "bold", hjust = 0.5)
+      )
     )
-  )
 
 ggsave(
-  "Figures/expected_outbreak_combined_R15_senario00.png",
+  "Figures/expected_outbreak_combined_R13_senario00.png",
   plot = p_combined,
   width = 16,
   height = 8,
@@ -180,14 +188,16 @@ infection_district_scenario <- infection_district %>%
     perc_diff_attack_rate1 = expected_attack_rate1 - expected_attack_rate,
     perc_diff_attack_rate2 = expected_attack_rate2 - expected_attack_rate,
     perc_diff_attack_rate3 = expected_attack_rate3 - expected_attack_rate,
-    perc_diff_attack_rate4 = expected_attack_rate4 - expected_attack_rate
+    perc_diff_attack_rate4 = expected_attack_rate4 - expected_attack_rate,
+    perc_diff_attack_rate5 = expected_attack_rate5 - expected_attack_rate
   )
 
 vals <- c(
   infection_district_scenario$perc_diff_attack_rate1,
   infection_district_scenario$perc_diff_attack_rate2,
   infection_district_scenario$perc_diff_attack_rate3,
-  infection_district_scenario$perc_diff_attack_rate4
+  infection_district_scenario$perc_diff_attack_rate4,
+  infection_district_scenario$perc_diff_attack_rate5
 )
 
 global_min <- min(vals, na.rm = TRUE)
@@ -264,7 +274,14 @@ p4 <- ggplot(infection_district_scenario) +
   map_theme +
   theme(legend.position = "none")
 
-
+p5 <- ggplot(infection_district_scenario) +
+  geom_sf(aes(fill = perc_diff_attack_rate5), color = "gray40") +
+  geom_sf(data = tx_counties, fill = NA, color = "gray20", size = 0.4) +
+  fill_scale +
+  labs(title = "E) Scenario 5") +
+  coord_sf(datum = NA) +
+  map_theme +
+  theme(legend.position = "none")
 
 
 # -------------------------------
@@ -298,14 +315,14 @@ legend <- g$grobs[[which(sapply(g$grobs, function(x) x$name) == "guide-box")]]
 
 
 final_plot <- plot_grid(
-  plot_grid(p1, p2, p3, p4, nrow = 2),
+  plot_grid(p1, p2, p3, p4, p5, nrow = 2),
   legend,
   ncol = 1,
   rel_heights = c(1, 0.12)
 )
 
 ggsave(
-  "Figures/change_attackrate_R15.png",
+  "Figures/change_attackrate_R13.png",
   final_plot,
   width = 10,
   height = 10,
@@ -394,14 +411,21 @@ p4 <- ggplot(infection_district_scenario) +
   map_theme +
   theme(legend.position = "none")
 
-
+p5 <- ggplot(infection_district_scenario) +
+  geom_sf(aes(fill = expected_attack_rate5), color = "gray40") +
+  geom_sf(data = tx_counties, fill = NA, color = "gray20", size = 0.4) +
+  fill_scale +
+  labs(title = "E) Scenario 5") +
+  coord_sf(datum = NA) +
+  map_theme +
+  theme(legend.position = "none")
 
 
 # -------------------------------
 # Combine and save
 # -------------------------------
 legend_plot <- ggplot(infection_district_scenario) +
-  geom_sf(aes(fill = expected_attack_rate4)) +
+  geom_sf(aes(fill = expected_attack_rate5)) +
   fill_scale +
   coord_sf(datum = NA) +
   
@@ -428,14 +452,14 @@ legend <- g$grobs[[which(sapply(g$grobs, function(x) x$name) == "guide-box")]]
 
 
 final_plot <- plot_grid(
-  plot_grid(p1, p2, p3, p4, nrow = 2),
+  plot_grid(p1, p2, p3, p4, p5, nrow = 2),
   legend,
   ncol = 1,
   rel_heights = c(1, 0.12)
 )
 
 ggsave(
-  "Figures/attackrate_R15.png",
+  "Figures/attackrate_R13.png",
   final_plot,
   width = 10,
   height = 10,
@@ -459,14 +483,17 @@ infection_district_scenario <- infection_district_scenario %>%
     expected_outbreak_size3 = ifelse(is.infinite(expected_outbreak_size3),
                                      -4, expected_outbreak_size3),
     expected_outbreak_size4 = ifelse(is.infinite(expected_outbreak_size4),
-                                     -4, expected_outbreak_size4)
+                                     -4, expected_outbreak_size4),
+    expected_outbreak_size5 = ifelse(is.infinite(expected_outbreak_size5),
+                                     -4, expected_outbreak_size5)
   )
 
 vals <- c(
   infection_district_scenario$expected_outbreak_size1,
   infection_district_scenario$expected_outbreak_size2,
   infection_district_scenario$expected_outbreak_size3,
-  infection_district_scenario$expected_outbreak_size4
+  infection_district_scenario$expected_outbreak_size4,
+  infection_district_scenario$expected_outbreak_size5
 )
 
 global_min <- min(vals, na.rm = TRUE)
@@ -540,6 +567,15 @@ p4 <- ggplot(infection_district_scenario) +
   map_theme +
   theme(legend.position = "none")
 
+p5 <- ggplot(infection_district_scenario) +
+  geom_sf(aes(fill = expected_outbreak_size5), color = "gray40") +
+  geom_sf(data = tx_counties, fill = NA, color = "gray20", size = 0.4) +
+  fill_scale +
+  labs(title = "E) Scenario 5") +
+  coord_sf(datum = NA) +
+  map_theme +
+  theme(legend.position = "none")
+
 
 
 
@@ -547,7 +583,7 @@ p4 <- ggplot(infection_district_scenario) +
 # Combine and save
 # -------------------------------
 legend_plot <- ggplot(infection_district_scenario) +
-  geom_sf(aes(fill = expected_outbreak_size4)) +
+  geom_sf(aes(fill = expected_outbreak_size5)) +
   fill_scale +
   coord_sf(datum = NA) +
   
@@ -574,14 +610,14 @@ legend <- g$grobs[[which(sapply(g$grobs, function(x) x$name) == "guide-box")]]
 
 
 final_plot <- plot_grid(
-  plot_grid(p1, p2, p3, p4, nrow = 2),
+  plot_grid(p1, p2, p3, p4, p5, nrow = 2),
   legend,
   ncol = 1,
   rel_heights = c(1, 0.12)
 )
 
 ggsave(
-  "Figures/expected_outbreak_size_R15.png",
+  "Figures/expected_outbreak_size_R13.png",
   final_plot,
   width = 10,
   height = 10,

@@ -299,9 +299,24 @@ mmr_district_df <- district_K_2025_mmr %>% rename(K = MMR) %>%
   full_join(district_7th_2022_mmr %>% rename(G10 = MMR), by = c("id", "district", "county")) %>%
   full_join(district_7th_2021_mmr %>% rename(G11 = MMR), by = c("id", "district", "county")) %>%
   full_join(district_7th_2020_mmr %>% rename(G12 = MMR), by = c("id", "district", "county")) %>%
+  rowwise() %>%
   mutate(
-    G6 = rowMeans(select(., G5, G7), na.rm = TRUE)
+    G6 = {
+      x <- c(0,1,2,3,4,5,7)
+      y <- c(K, G1, G2, G3, G4, G5, G7)
+      valid <- !is.na(y)
+      
+      if (sum(valid) < 3) NA_real_
+      else {
+        fit <- lm(y[valid] ~ x[valid])
+        pred <- coef(fit)[1] + coef(fit)[2] * 6
+        pmin(pred, 1)
+      }
+    }
   ) %>%
+  ungroup() %>%
+    # G6 = rowMeans(select(., G5, G7), na.rm = TRUE)
+    # ) %>%
   select(id, district, county, K, G1, G2, G3, G4, G5, G6, G7, G8, G9, G10, G11, G12)
 
 
@@ -351,6 +366,7 @@ mmr_district_df_clean <- mmr_district_df %>%
     mean_val = mean(c_across(K:G12), na.rm = TRUE),
     across(K:G12, ~ ifelse(is.na(.x), mean_val, .x)),
     
+    # Scenario 00 (BASELINE) 
     mmr = rowSums(
       cbind(
         K  * grade_weights["K"],
@@ -369,8 +385,37 @@ mmr_district_df_clean <- mmr_district_df %>%
       )
     ),
     
-    # Scenario 01 vaccine uptake at kindergarten remains constant over the next 5 years
+    # Scenario 01 continued decline
+    raw_slope  = coef(lm(c(G4, G3, G2, G1, K) ~ c(0:4)))[2],
+    k_slope = ifelse(raw_slope < 0, raw_slope, 0),
+    
+    K1 = pmin(pmax(K + 1*k_slope, 0), 1),
+    K2 = pmin(pmax(K + 2*k_slope, 0), 1),
+    K3 = pmin(pmax(K + 3*k_slope, 0), 1),
+    K4 = pmin(pmax(K + 4*k_slope, 0), 1),
+    K5 = pmin(pmax(K + 5*k_slope, 0), 1),
+    
     mmr1 = rowSums(
+      cbind(
+        K5 * grade_weights["K"],
+        K4 * grade_weights["G1"],
+        K3 * grade_weights["G2"],
+        K2 * grade_weights["G3"],
+        K1 * grade_weights["G4"],
+        K  * grade_weights["G5"],
+        G1 * grade_weights["G6"],
+        G2 * grade_weights["G7"],
+        G3 * grade_weights["G8"],
+        G4 * grade_weights["G9"],
+        G5 * grade_weights["G10"],
+        G6 * grade_weights["G11"],
+        G7 * grade_weights["G12"]
+      )
+    ),
+    
+    
+    # Scenario 02 vaccine uptake at kindergarten remains constant over the next 5 years
+    mmr2 = rowSums(
       cbind(
         K  * grade_weights["K"],
         K * grade_weights["G1"],
@@ -387,10 +432,9 @@ mmr_district_df_clean <- mmr_district_df %>%
         G7 * grade_weights["G12"]
       )
     ),
-    # Scenario 02 vaccine uptake trend is reversed over the next 5 years
-    k_slope = coef(lm(c(G4, G3, G2, G1, K) ~ c(1:5) ))[2],
-    mmr2 = case_when(
-      k_slope < 0 ~ rowSums(
+    # Scenario 03 vaccine uptake trend is reversed over the next 5 years
+    mmr3 = case_when(
+      raw_slope < 0 ~ rowSums(
         cbind(
           G4 * grade_weights["K"],
           G3 * grade_weights["G1"],
@@ -407,11 +451,11 @@ mmr_district_df_clean <- mmr_district_df %>%
           G7 * grade_weights["G12"]
         )
       ),
-      TRUE ~ mmr1
+      TRUE ~ mmr2
     ),
     
-    # Scenario 3 kindergarten coverage to be 95% each year for the next 5 years. 
-    mmr3 = rowSums(
+    # Scenario 4 kindergarten coverage to be 95% each year for the next 5 years. 
+    mmr4 = rowSums(
       cbind(
         pmax(K, 0.95) * grade_weights["K"],
         pmax(K, 0.95) * grade_weights["G1"],
@@ -429,9 +473,9 @@ mmr_district_df_clean <- mmr_district_df %>%
       )
     ),
     
-    # scenario 04 all districts with total coverage below 95% are raised to 95% coverage
-    mmr4 = ifelse(mmr < .95, .95, mmr)
-  )%>%
+    # scenario 05 all districts with total coverage below 95% are raised to 95% coverage
+    mmr5 = ifelse(mmr < .95, .95, mmr)
+  ) %>%
   select(
     district,
     county,
@@ -439,7 +483,8 @@ mmr_district_df_clean <- mmr_district_df %>%
     mmr1,
     mmr2,
     mmr3,
-    mmr4
+    mmr4,
+    mmr5
   )
 
 
