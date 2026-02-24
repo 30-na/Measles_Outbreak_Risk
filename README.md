@@ -38,10 +38,11 @@ This repository contains a framework for modeling the risk of measles outbreaks 
 Four vaccination scenarios are analyzed:
 
 - **Scenario 0 (Baseline)**: Uses the observed district-level K–12 MMR vaccination coverage.
-- **Scenario 1**: Kindergarten MMR vaccination coverage remains constant at the 2024–2025 level over the next five years.
-- **Scenario 2**: Any decline in kindergarten MMR coverage between 2020 and 2024 is reversed over the next five years.
-- **Scenario 3**: Kindergarten MMR vaccination coverage is increased to at least 95% over the next five years.
-- **Scenario 4**: All districts achieve and maintain at least 95% MMR vaccination coverage across K–12.
+- **Scenario 1 (Continued Decline)**: Recent kindergarten coverage trend is extrapolated forward 5 years if declining.
+- **Scenario 2 (Constant Uptake)**: Kindergarten MMR vaccination coverage remains constant at the 2024–2025 level over the next five years.
+- **Scenario 3 (Trend Reversal)**: Any decline in kindergarten MMR coverage between 2020 and 2024 is reversed over the next five years.
+- **Scenario 4 (Kindergarten ≥95%**: Kindergarten MMR vaccination coverage is increased to at least 95% over the next five years.
+- **Scenario 5 (District ≥95%)**: All districts achieve and maintain at least 95% MMR vaccination coverage across K–12.
 
 These strategies are implemented in `02_calculate_infection_proportion_and_plots.r`.
 
@@ -53,7 +54,7 @@ These strategies are implemented in `02_calculate_infection_proportion_and_plots
 - **Expected Outbreak Size**: Expected number of infected students in each district.
 - **Transmission Assumption**: Independent district level outbreaks (no inter district transmission).
 
-Analyses are performed for R0 = 12 (baseline) and R0 = 15 (sensitivity analysis).
+Analyses are performed for R0 = 11.7 (baseline) and R0 = 13 (sensitivity analysis).
 
 ## Main Scripts
 
