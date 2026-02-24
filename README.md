@@ -75,3 +75,9 @@ Analyses are performed for R0 = 11.7 (baseline) and R0 = 13 (sensitivity analysi
   - Expected attack rate maps
   - Expected outbreak size maps
   - Maps showing changes in attack rate under vaccination scenarios
+ 
+## Visual Abstract
+[https://tidbitapp.io/tidbits/risk-of-measles-outbreak-in-texas-school-districts-a-modeling-study?utm_campaign=tidbitlinkshare&utm_source=IO](PASTE_YOUR_LINK_HERE)
+
+<img width="5060" height="2560" alt="Risk of Measles Outbreak in Texas School Districts_ A Modeling Study (1)" src="https://github.com/user-attachments/assets/a762c276-cf97-4027-b29a-4797a88d582e" />
+
