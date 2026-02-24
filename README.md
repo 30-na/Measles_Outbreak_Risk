@@ -24,7 +24,9 @@ This repository contains a framework for modeling the risk of measles outbreaks 
 - Contains total K–12 public school enrollment by district.
 
 #### Population Age Structure
-- **Source**: Texas Population Pyramids (2020)  
+- **Source**: Texas Population Pyramids (2020)
+- **Link**: https://demographics.texas.gov/Interactive/2021/CBEstimates
+- **File used**: `Texas.csv`
 - Used to derive grade-level population weights (ages 5–17) for estimating district-level K–12 MMR coverage.
 
 #### Geometries Data
@@ -45,18 +47,18 @@ These strategies are implemented in `02_calculate_infection_proportion_and_plots
 
 ## Modeling Process
 
-- **Susceptible Population**: Calculated from district-level K–12 MMR coverage and vaccine efficacy (97%).
+- **Susceptible Population**: Calculated from district level K–12 MMR coverage and vaccine efficacy (97%).
 - **Outbreak Probability**: Probability that a measles outbreak takes off in each district.
 - **Internal Infection Probability**: Solves an implicit equation for the attack rate.
 - **Expected Outbreak Size**: Expected number of infected students in each district.
-- **Transmission Assumption**: Independent district-level outbreaks (no inter-district transmission).
+- **Transmission Assumption**: Independent district level outbreaks (no inter district transmission).
 
 Analyses are performed for R0 = 12 (baseline) and R0 = 15 (sensitivity analysis).
 
 ## Main Scripts
 
 - `01_read_clean_merge_data.r` :
-  Reads and cleans multi-year vaccination data, reconstructs grade-specific K–12 coverage, applies population-based weighting, merges enrollment and district geometry data, and saves processed datasets.
+  Reads and cleans multi year vaccination data, reconstructs grade specific K–12 coverage, applies population based weighting, merges enrollment and district geometry data, and saves processed datasets.
 
 - `02_calculate_infection_proportion_and_plots.r` :
   Computes outbreak probability, attack rate, and expected outbreak size for all vaccination scenarios and generates district-level maps and figures.
